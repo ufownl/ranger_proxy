@@ -4,6 +4,9 @@
 *.o
 *.obj
 
+# Compiled Dependencies files
+*.d
+
 # Precompiled Headers
 *.gch
 *.pch
@@ -26,3 +29,9 @@
 *.exe
 *.out
 *.app
+
+# Vim SWP files
+*.swp
+
+# Build
+build/
