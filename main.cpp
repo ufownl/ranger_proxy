@@ -17,12 +17,64 @@
 #include "common.hpp"
 #include "socks5_service.hpp"
 
-int main() {
-	using namespace ranger;
-	using namespace ranger::proxy;
+using namespace ranger;
+using namespace ranger::proxy;
+
+int bootstrap(int argc, char* argv[]) {
+	std::string host;
+	uint16_t port = 1080;
+
+	auto res = message_builder(argv + 1, argv + argc).extract_opts({
+		{"host,H", "set host", host},
+		{"port,p", "set port (default: 1080)", port}
+	});
+
+	if (!res.error.empty()) {
+		std::cerr << res.error << std::endl;
+		return 1;
+	}
+
+	if (res.opts.count("help") > 0) {
+		std::cout << res.helptext << std::endl;
+		return 0;
+	}
+
 	auto serv = spawn(socks5_service_impl);
-	anon_send(serv, publish_atom::value, "127.0.0.1", static_cast<uint16_t>(1080));
+	int ret = 0;
+	if (host.empty()) {
+		scoped_actor self;
+		self->sync_send(serv, publish_atom::value, port).await(
+			[&ret] (ok_atom, uint16_t) {
+				std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
+			},
+			[&ret] (error_atom, const std::string& what) {
+				std::cerr << "ERROR: " << what << std::endl;
+				ret = 1;
+			}
+		);
+	} else {
+		scoped_actor self;
+		self->sync_send(serv, publish_atom::value, host, port).await(
+			[&ret] (ok_atom, uint16_t) {
+				std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
+			},
+			[&ret] (error_atom, const std::string& what) {
+				std::cerr << "ERROR: " << what << std::endl;
+				ret = 1;
+			}
+		);
+	}
+
+	if (ret) {
+		anon_send_exit(serv, exit_reason::kill);
+	}
+
+	return ret;
+}
+
+int main(int argc, char* argv[]) {
+	int ret = bootstrap(argc, argv);
 	await_all_actors_done();
 	shutdown();
-	return 0;
+	return ret;
 }
