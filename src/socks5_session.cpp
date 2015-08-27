@@ -147,11 +147,8 @@ void socks5_handler::handle_ipv4_request_data(connection_handle hdl, const new_d
 	memcpy(&port, &msg.buf[4], sizeof(port));
 	port = ntohs(port);
 
-	std::string host(inet_ntoa(addr));
-	aout(m_self) << "reqeust: " << host << ":" << port << std::endl;
-
 	auto helper = m_self->spawn<linked>(connect_helper_impl, &m_self->parent().backend());
-	m_self->send(helper, connect_atom::value, host, port);
+	m_self->send(helper, connect_atom::value, inet_ntoa(addr), port);
 
 	m_self->configure_read(hdl, receive_policy::at_most(8192));
 	m_current_handler = nullptr;
@@ -194,8 +191,6 @@ void socks5_handler::handle_domainname_request_data(connection_handle hdl, const
 	memcpy(&port, &msg.buf[msg.buf.size() - 2], sizeof(port));
 	port = ntohs(port);
 
-	aout(m_self) << "request: " << host << ":" << port << std::endl;
-	
 	auto helper = m_self->spawn<linked>(connect_helper_impl, &m_self->parent().backend());
 	m_self->send(helper, connect_atom::value, host, port);
 
