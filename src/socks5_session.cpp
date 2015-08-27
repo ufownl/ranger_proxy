@@ -50,6 +50,12 @@ void socks5_handler::handle_connect_fail(const std::string& what) {
 }
 
 void socks5_handler::handle_select_method_header(connection_handle hdl, const new_data_msg& msg) {
+	if (static_cast<uint8_t>(msg.buf[0]) != 0x05) {
+		aout(m_self) << "ERROR: Protocol version mismatch" << std::endl;
+		m_self->quit();
+		return;
+	}
+
 	m_self->configure_read(hdl, receive_policy::exactly(static_cast<uint8_t>(msg.buf[1])));
 	m_current_handler = &socks5_handler::handle_select_method_data;
 }
@@ -72,6 +78,12 @@ void socks5_handler::handle_select_method_data(connection_handle hdl, const new_
 }
 
 void socks5_handler::handle_request_header(connection_handle hdl, const new_data_msg& msg) {
+	if (static_cast<uint8_t>(msg.buf[0]) != 0x05) {
+		aout(m_self) << "ERROR: Protocol version mismatch" << std::endl;
+		m_self->quit();
+		return;
+	}
+
 	if (static_cast<uint8_t>(msg.buf[1]) != 0x01) {
 		aout(m_self) << "ERROR: Command not supported" << std::endl;
 		uint8_t buf[] = {0x05, 0x07, 0x00, 0x01};
@@ -108,8 +120,11 @@ using connect_helper =
 
 namespace {
 
+using namespace caf;
+using namespace caf::io;
+
 connect_helper::behavior_type
-connect_helper_impl(connect_helper::pointer self, caf::io::network::multiplexer* backend) {
+connect_helper_impl(connect_helper::pointer self, network::multiplexer* backend) {
 	return {
 		[=] (connect_atom, const std::string& host, uint16_t port)
 			-> either<ok_atom, connection_handle>::or_else<error_atom, std::string> {

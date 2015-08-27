@@ -30,7 +30,7 @@ int bootstrap(int argc, char* argv[]) {
 	});
 
 	if (!res.error.empty()) {
-		std::cerr << res.error << std::endl;
+		std::cout << res.error << std::endl;
 		return 1;
 	}
 
@@ -48,7 +48,7 @@ int bootstrap(int argc, char* argv[]) {
 				std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
 			},
 			[&ret] (error_atom, const std::string& what) {
-				std::cerr << "ERROR: " << what << std::endl;
+				std::cout << "ERROR: " << what << std::endl;
 				ret = 1;
 			}
 		);
@@ -59,7 +59,7 @@ int bootstrap(int argc, char* argv[]) {
 				std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
 			},
 			[&ret] (error_atom, const std::string& what) {
-				std::cerr << "ERROR: " << what << std::endl;
+				std::cout << "ERROR: " << what << std::endl;
 				ret = 1;
 			}
 		);
