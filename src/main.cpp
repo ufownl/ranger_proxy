@@ -39,12 +39,12 @@ int bootstrap(int argc, char* argv[]) {
 		return 0;
 	}
 
-	auto serv = spawn(socks5_service_impl);
+	auto serv = spawn_io(socks5_service_impl);
 	int ret = 0;
 	if (host.empty()) {
 		scoped_actor self;
 		self->sync_send(serv, publish_atom::value, port).await(
-			[&ret] (ok_atom, uint16_t) {
+			[] (ok_atom, uint16_t) {
 				std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
 			},
 			[&ret] (error_atom, const std::string& what) {
@@ -55,7 +55,7 @@ int bootstrap(int argc, char* argv[]) {
 	} else {
 		scoped_actor self;
 		self->sync_send(serv, publish_atom::value, host, port).await(
-			[&ret] (ok_atom, uint16_t) {
+			[] (ok_atom, uint16_t) {
 				std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
 			},
 			[&ret] (error_atom, const std::string& what) {
