@@ -156,6 +156,8 @@ void socks5_handler::handle_ipv4_request_data(connection_handle hdl, const new_d
 	m_self->configure_read(hdl, receive_policy::at_most(8192));
 	m_current_handler = nullptr;
 
+	port = htons(port);
+
 	m_conn_succ_handler = [this, hdl, addr, port] (connection_handle remote_hdl) {
 		m_self->assign_tcp_scribe(remote_hdl);
 		m_remote_hdl = remote_hdl;
@@ -179,7 +181,6 @@ void socks5_handler::handle_ipv4_request_data(connection_handle hdl, const new_d
 		m_self->flush(hdl);
 		m_self->quit();
 	};
-
 }
 
 void socks5_handler::handle_domainname_length(connection_handle hdl, const new_data_msg& msg) {
@@ -200,6 +201,8 @@ void socks5_handler::handle_domainname_request_data(connection_handle hdl, const
 
 	m_self->configure_read(hdl, receive_policy::at_most(8192));
 	m_current_handler = nullptr;
+
+	port = htons(port);
 
 	m_conn_succ_handler = [this, hdl, host, port] (connection_handle remote_hdl) {
 		m_self->assign_tcp_scribe(remote_hdl);
