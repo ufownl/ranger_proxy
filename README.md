@@ -22,7 +22,7 @@ make install
 ```
 
 ## 依赖项
-* 一个支持C++11标准的编译器
+* 支持C++11标准的编译器
   * GCC >= 4.8
   * Clang >= 3.2
 * [CMake](http://www.cmake.org)
