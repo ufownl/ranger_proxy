@@ -1,6 +1,16 @@
 # ranger_proxy
 **ranger_proxy**是一个SOCKS5代理服务器的实现。
 
+## 使用
+使用默认设置启动**ranger_proxy**：
+```
+ranger_proxy
+```
+查看帮助信息：
+```
+ranger_proxy --help
+```
+
 ## 安装
 在完成所有依赖项的安装后，执行以下命令即可完成安装：
 ```
