@@ -16,6 +16,7 @@
 
 #include "common.hpp"
 #include "socks5_service.hpp"
+#include "gate_service.hpp"
 
 using namespace ranger;
 using namespace ranger::proxy;
@@ -23,10 +24,15 @@ using namespace ranger::proxy;
 int bootstrap(int argc, char* argv[]) {
 	std::string host;
 	uint16_t port = 1080;
+	std::string remote_host;
+	uint16_t remote_port = 0;
 
 	auto res = message_builder(argv + 1, argv + argc).extract_opts({
 		{"host,H", "set host", host},
-		{"port,p", "set port (default: 1080)", port}
+		{"port,p", "set port (default: 1080)", port},
+		{"gate,G", "run in gate mode"},
+		{"remote_host", "set remote host (only used in gate mode)", remote_host},
+		{"remote_port", "set remote port (only used in gate mode)", remote_port}
 	});
 
 	if (!res.error.empty()) {
@@ -39,34 +45,68 @@ int bootstrap(int argc, char* argv[]) {
 		return 0;
 	}
 
-	auto serv = spawn_io(socks5_service_impl);
 	int ret = 0;
-	if (host.empty()) {
-		scoped_actor self;
-		self->sync_send(serv, publish_atom::value, port).await(
-			[] (ok_atom, uint16_t) {
-				std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
-			},
-			[&ret] (error_atom, const std::string& what) {
-				std::cout << "ERROR: " << what << std::endl;
-				ret = 1;
-			}
-		);
-	} else {
-		scoped_actor self;
-		self->sync_send(serv, publish_atom::value, host, port).await(
-			[] (ok_atom, uint16_t) {
-				std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
-			},
-			[&ret] (error_atom, const std::string& what) {
-				std::cout << "ERROR: " << what << std::endl;
-				ret = 1;
-			}
-		);
-	}
 
-	if (ret) {
-		anon_send_exit(serv, exit_reason::kill);
+	if (res.opts.count("gate") > 0) {
+		auto serv = spawn_io(gate_service_impl);
+		scoped_actor self;
+		self->send(serv, add_atom::value, remote_host, remote_port);
+		if (host.empty()) {
+			scoped_actor self;
+			self->sync_send(serv, publish_atom::value, port).await(
+				[] (ok_atom, uint16_t) {
+					std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
+				},
+				[&ret] (error_atom, const std::string& what) {
+					std::cout << "ERROR: " << what << std::endl;
+					ret = 1;
+				}
+			);
+		} else {
+			scoped_actor self;
+			self->sync_send(serv, publish_atom::value, host, port).await(
+				[] (ok_atom, uint16_t) {
+					std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
+				},
+				[&ret] (error_atom, const std::string& what) {
+					std::cout << "ERROR: " << what << std::endl;
+					ret = 1;
+				}
+			);
+		}
+
+		if (ret) {
+			anon_send_exit(serv, exit_reason::kill);
+		}
+	} else {
+		auto serv = spawn_io(socks5_service_impl);
+		if (host.empty()) {
+			scoped_actor self;
+			self->sync_send(serv, publish_atom::value, port).await(
+				[] (ok_atom, uint16_t) {
+					std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
+				},
+				[&ret] (error_atom, const std::string& what) {
+					std::cout << "ERROR: " << what << std::endl;
+					ret = 1;
+				}
+			);
+		} else {
+			scoped_actor self;
+			self->sync_send(serv, publish_atom::value, host, port).await(
+				[] (ok_atom, uint16_t) {
+					std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
+				},
+				[&ret] (error_atom, const std::string& what) {
+					std::cout << "ERROR: " << what << std::endl;
+					ret = 1;
+				}
+			);
+		}
+
+		if (ret) {
+			anon_send_exit(serv, exit_reason::kill);
+		}
 	}
 
 	return ret;
