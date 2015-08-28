@@ -16,6 +16,7 @@
 
 #include "common.hpp"
 #include "socks5_session.hpp"
+#include "connect_helper.hpp"
 #include <arpa/inet.h>
 #include <algorithm>
 #include <iterator>
@@ -107,35 +108,6 @@ void socks5_state::handle_request_header(const new_data_msg& msg) {
 	write(m_local_hdl, {0x05, 0x08, 0x00, 0x01}, [this] {
 		m_self->quit();
 	});
-}
-
-using connect_helper =
-	typed_actor<
-		replies_to<connect_atom, std::string, uint16_t>
-		::with_either<ok_atom, connection_handle>
-		::or_else<error_atom, std::string>
-	>;
-
-namespace {
-
-using namespace caf;
-using namespace caf::io;
-
-connect_helper::behavior_type
-connect_helper_impl(connect_helper::pointer self, network::multiplexer* backend) {
-	return {
-		[=] (connect_atom, const std::string& host, uint16_t port)
-			-> either<ok_atom, connection_handle>::or_else<error_atom, std::string> {
-			self->quit();
-			try {
-				return {ok_atom::value, backend->new_tcp_scribe(host, port)};
-			} catch (const network_error& e) {
-				return {error_atom::value, e.what()};
-			}
-		}
-	};
-}
-
 }
 
 void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {

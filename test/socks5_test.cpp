@@ -17,6 +17,7 @@
 #include "test_util.hpp"
 #include "socks5_service.cpp"
 #include "socks5_session.cpp"
+#include "connect_helper.cpp"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
