@@ -22,34 +22,34 @@
 
 namespace ranger { namespace proxy {
 
-socks5_handler::socks5_handler(socks5_session::broker_pointer self)
+socks5_state::socks5_state(socks5_session::broker_pointer self)
 	: m_self(self) {
 }
 
-void socks5_handler::init(connection_handle hdl) {
+void socks5_state::init(connection_handle hdl) {
 	m_self->configure_read(hdl, receive_policy::exactly(2));
-	m_current_handler = &socks5_handler::handle_select_method_header;
+	m_current_handler = &socks5_state::handle_select_method_header;
 }
 
-void socks5_handler::handle_new_data(connection_handle hdl, const new_data_msg& msg) {
+void socks5_state::handle_new_data(connection_handle hdl, const new_data_msg& msg) {
 	if (m_current_handler) {
 		(this->*m_current_handler)(hdl, msg);
 	}
 }
 
-void socks5_handler::handle_connect_succ(connection_handle hdl) {
+void socks5_state::handle_connect_succ(connection_handle hdl) {
 	if (m_conn_succ_handler) {
 		m_conn_succ_handler(hdl);
 	}
 }
 
-void socks5_handler::handle_connect_fail(const std::string& what) {
+void socks5_state::handle_connect_fail(const std::string& what) {
 	if (m_conn_fail_handler) {
 		m_conn_fail_handler(what);
 	}
 }
 
-void socks5_handler::handle_select_method_header(connection_handle hdl, const new_data_msg& msg) {
+void socks5_state::handle_select_method_header(connection_handle hdl, const new_data_msg& msg) {
 	if (static_cast<uint8_t>(msg.buf[0]) != 0x05) {
 		aout(m_self) << "ERROR: Protocol version mismatch" << std::endl;
 		m_self->quit();
@@ -57,17 +57,17 @@ void socks5_handler::handle_select_method_header(connection_handle hdl, const ne
 	}
 
 	m_self->configure_read(hdl, receive_policy::exactly(static_cast<uint8_t>(msg.buf[1])));
-	m_current_handler = &socks5_handler::handle_select_method_data;
+	m_current_handler = &socks5_state::handle_select_method_data;
 }
 
-void socks5_handler::handle_select_method_data(connection_handle hdl, const new_data_msg& msg) {
+void socks5_state::handle_select_method_data(connection_handle hdl, const new_data_msg& msg) {
 	if (std::find(msg.buf.begin(), msg.buf.end(), 0) != msg.buf.end()) {
 		uint8_t buf[] = {0x05, 0x00};
 		m_self->write(hdl, sizeof(buf), buf);
 		m_self->flush(hdl);
 
 		m_self->configure_read(hdl, receive_policy::exactly(4));
-		m_current_handler = &socks5_handler::handle_request_header;
+		m_current_handler = &socks5_state::handle_request_header;
 	} else {
 		aout(m_self) << "ERROR: NO ACCEPTABLE METHODS" << std::endl;
 		uint8_t buf[] = {0x05, 0xFF};
@@ -77,7 +77,7 @@ void socks5_handler::handle_select_method_data(connection_handle hdl, const new_
 	}
 }
 
-void socks5_handler::handle_request_header(connection_handle hdl, const new_data_msg& msg) {
+void socks5_state::handle_request_header(connection_handle hdl, const new_data_msg& msg) {
 	if (static_cast<uint8_t>(msg.buf[0]) != 0x05) {
 		aout(m_self) << "ERROR: Protocol version mismatch" << std::endl;
 		m_self->quit();
@@ -96,11 +96,11 @@ void socks5_handler::handle_request_header(connection_handle hdl, const new_data
 	switch (static_cast<uint8_t>(msg.buf[3])) {
 	case 0x01:	// IPV4
 		m_self->configure_read(hdl, receive_policy::exactly(6));
-		m_current_handler = &socks5_handler::handle_ipv4_request_data;
+		m_current_handler = &socks5_state::handle_ipv4_request_data;
 		return;
 	case 0x03:	// DOMAINNAME
 		m_self->configure_read(hdl, receive_policy::exactly(1));
-		m_current_handler = &socks5_handler::handle_domainname_length;
+		m_current_handler = &socks5_state::handle_domainname_length;
 		return;
 	}
 
@@ -140,7 +140,7 @@ connect_helper_impl(connect_helper::pointer self, network::multiplexer* backend)
 
 }
 
-void socks5_handler::handle_ipv4_request_data(connection_handle hdl, const new_data_msg& msg) {
+void socks5_state::handle_ipv4_request_data(connection_handle hdl, const new_data_msg& msg) {
 	in_addr addr;
 	memcpy(&addr, &msg.buf[0], sizeof(addr));
 	uint16_t port;
@@ -166,7 +166,7 @@ void socks5_handler::handle_ipv4_request_data(connection_handle hdl, const new_d
 		m_self->flush(hdl);
 
 		m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
-		m_current_handler = &socks5_handler::handle_stream_data;
+		m_current_handler = &socks5_state::handle_stream_data;
 	};
 
 	m_conn_fail_handler = [this, hdl, addr, port] (const std::string& what) {
@@ -180,12 +180,12 @@ void socks5_handler::handle_ipv4_request_data(connection_handle hdl, const new_d
 	};
 }
 
-void socks5_handler::handle_domainname_length(connection_handle hdl, const new_data_msg& msg) {
+void socks5_state::handle_domainname_length(connection_handle hdl, const new_data_msg& msg) {
 	m_self->configure_read(hdl, receive_policy::exactly(static_cast<uint8_t>(msg.buf[0]) + 2));
-	m_current_handler = &socks5_handler::handle_domainname_request_data;
+	m_current_handler = &socks5_state::handle_domainname_request_data;
 }
 
-void socks5_handler::handle_domainname_request_data(connection_handle hdl, const new_data_msg& msg) {
+void socks5_state::handle_domainname_request_data(connection_handle hdl, const new_data_msg& msg) {
 	std::string host(msg.buf.begin(), msg.buf.begin() + msg.buf.size() - 2);
 	uint16_t port;
 	memcpy(&port, &msg.buf[msg.buf.size() - 2], sizeof(port));
@@ -210,7 +210,7 @@ void socks5_handler::handle_domainname_request_data(connection_handle hdl, const
 		m_self->flush(hdl);
 
 		m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
-		m_current_handler = &socks5_handler::handle_stream_data;
+		m_current_handler = &socks5_state::handle_stream_data;
 	};
 
 	m_conn_fail_handler = [this, hdl, host, port] (const std::string& what) {
@@ -224,7 +224,7 @@ void socks5_handler::handle_domainname_request_data(connection_handle hdl, const
 	};
 }
 
-void socks5_handler::handle_stream_data(connection_handle hdl, const new_data_msg& msg) {
+void socks5_state::handle_stream_data(connection_handle hdl, const new_data_msg& msg) {
 	if (msg.handle == hdl) {
 		m_self->write(m_remote_hdl, msg.buf.size(), msg.buf.data());
 		m_self->flush(m_remote_hdl);
@@ -235,7 +235,7 @@ void socks5_handler::handle_stream_data(connection_handle hdl, const new_data_ms
 }
 
 socks5_session::behavior_type
-socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_handler> self, connection_handle hdl) {
+socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self, connection_handle hdl) {
 	self->state.init(hdl);
 	return {
 		[=] (const new_data_msg& msg) {

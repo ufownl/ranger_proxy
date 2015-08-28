@@ -27,9 +27,9 @@ using socks5_session =
 		reacts_to<error_atom, std::string>
 	>;
 
-class socks5_handler {
+class socks5_state {
 public:
-	socks5_handler(socks5_session::broker_pointer self);
+	socks5_state(socks5_session::broker_pointer self);
 
 	void init(connection_handle hdl);
 	void handle_new_data(connection_handle hdl, const new_data_msg& msg);
@@ -37,7 +37,7 @@ public:
 	void handle_connect_fail(const std::string& what);
 
 private:
-	using new_data_handler = void (socks5_handler::*)(connection_handle, const new_data_msg&);
+	using new_data_handler = void (socks5_state::*)(connection_handle, const new_data_msg&);
 
 	void handle_select_method_header(connection_handle hdl, const new_data_msg& msg);
 	void handle_select_method_data(connection_handle hdl, const new_data_msg& msg);
@@ -55,7 +55,7 @@ private:
 };
 
 socks5_session::behavior_type
-socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_handler> self, connection_handle hdl);
+socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self, connection_handle hdl);
 
 } }
 
