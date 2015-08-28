@@ -17,10 +17,13 @@
 #include "test_util.hpp"
 #include "socks5_service.cpp"
 #include "socks5_session.cpp"
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
-TEST_F(ranger_proxy_test, socks5_conn_no_auth_ipv4) {
+TEST_F(socks5_test, socks5_no_auth_conn_ipv4) {
 	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl);
-	scope_guard guard_socks5([&socks5] {
+	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
 
@@ -35,8 +38,8 @@ TEST_F(ranger_proxy_test, socks5_conn_no_auth_ipv4) {
 				std::cout << "ERROR: " << what << std::endl;
 			}
 		);
-		ASSERT_NE(0, port);
 	}
+	ASSERT_NE(0, port);
 
 	int fd = socket(AF_INET, SOCK_STREAM, 0);
 	ASSERT_NE(-1, fd);
@@ -98,9 +101,9 @@ TEST_F(ranger_proxy_test, socks5_conn_no_auth_ipv4) {
 	caf::anon_send_exit(socks5, caf::exit_reason::kill);
 }
 
-TEST_F(ranger_proxy_test, socks5_conn_no_auth_domainname) {
+TEST_F(socks5_test, socks5_no_auth_conn_domainname) {
 	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl);
-	scope_guard guard_socks5([&socks5] {
+	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
 
@@ -115,8 +118,8 @@ TEST_F(ranger_proxy_test, socks5_conn_no_auth_domainname) {
 				std::cout << "ERROR: " << what << std::endl;
 			}
 		);
-		ASSERT_NE(0, port);
 	}
+	ASSERT_NE(0, port);
 
 	int fd = socket(AF_INET, SOCK_STREAM, 0);
 	ASSERT_NE(-1, fd);

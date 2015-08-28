@@ -20,9 +20,6 @@
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 #include <gtest/gtest.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <iostream>
 #include <string>
 #include <functional>
@@ -64,6 +61,13 @@ public:
 	}
 
 protected:
+	void TearDown() override {
+		caf::await_all_actors_done();
+	}
+};
+
+class socks5_test : public ranger_proxy_test {
+protected:
 	void SetUp() final {
 		m_echo = caf::io::spawn_io(echo_service_impl);
 		caf::scoped_actor self;
@@ -80,7 +84,7 @@ protected:
 
 	void TearDown() final {
 		caf::anon_send_exit(m_echo, caf::exit_reason::kill);
-		caf::await_all_actors_done();
+		ranger_proxy_test::TearDown();
 	}
 
 	echo_service m_echo;
