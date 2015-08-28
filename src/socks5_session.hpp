@@ -17,6 +17,7 @@
 #ifndef RANGER_PROXY_SOCKS5_SESSION_HPP
 #define RANGER_PROXY_SOCKS5_SESSION_HPP
 
+#include <string>
 #include <vector>
 #include <functional>
 

@@ -25,6 +25,7 @@ namespace ranger { namespace proxy {
 
 socks5_state::socks5_state(socks5_session::broker_pointer self)
 	: m_self(self) {
+	// nop
 }
 
 void socks5_state::init(connection_handle hdl) {
