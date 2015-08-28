@@ -21,7 +21,9 @@
 namespace ranger { namespace proxy {
 
 void gate_service_state::add_host(const std::string& host, uint16_t port) {
-	m_hosts.emplace_back(host, port);
+	if (!host.empty() && port != 0) {
+		m_hosts.emplace_back(host, port);
+	}
 }
 
 std::pair<std::string, uint16_t> gate_service_state::query_host() {
