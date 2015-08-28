@@ -33,6 +33,9 @@ class socks5_state {
 public:
 	socks5_state(socks5_session::broker_pointer self);
 
+	socks5_state(const socks5_state&) = delete;
+	socks5_state& operator = (const socks5_state&) = delete;
+
 	void init(connection_handle hdl);
 	void handle_new_data(const new_data_msg& msg);
 	void handle_connect_succ(connection_handle hdl);

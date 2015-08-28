@@ -24,6 +24,11 @@ namespace ranger { namespace proxy {
 
 class aes_cfb128_state {
 public:
+	aes_cfb128_state() = default;
+
+	aes_cfb128_state(const aes_cfb128_state&) = delete;
+	aes_cfb128_state& operator = (const aes_cfb128_state&) = delete;
+
 	void init(std::vector<uint8_t> key, std::vector<uint8_t> ivec);
 
 	std::vector<uint8_t> encrypt(const std::vector<uint8_t>& in);
