@@ -226,10 +226,10 @@ void socks5_handler::handle_domainname_request_data(connection_handle hdl, const
 
 void socks5_handler::handle_stream_data(connection_handle hdl, const new_data_msg& msg) {
 	if (msg.handle == hdl) {
-		m_self->write(m_remote_hdl, msg.buf.size(), &msg.buf.front());
+		m_self->write(m_remote_hdl, msg.buf.size(), msg.buf.data());
 		m_self->flush(m_remote_hdl);
 	} else {
-		m_self->write(hdl, msg.buf.size(), &msg.buf.front());
+		m_self->write(hdl, msg.buf.size(), msg.buf.data());
 		m_self->flush(hdl);
 	}
 }

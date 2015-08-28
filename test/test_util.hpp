@@ -41,7 +41,7 @@ echo_service_impl(echo_service::broker_pointer self) {
 			self->configure_read(msg.handle, caf::io::receive_policy::at_most(8192));
 		},
 		[=] (const caf::io::new_data_msg& msg) {
-			self->write(msg.handle, msg.buf.size(), &msg.buf.front());
+			self->write(msg.handle, msg.buf.size(), msg.buf.data());
 			self->flush(msg.handle);
 		},
 		[] (const caf::io::connection_closed_msg&) {},
