@@ -41,7 +41,7 @@ socks5_service_impl(socks5_service::broker_pointer self) {
 				return {error_atom::value, e.what()};
 			}
 		},
-		[=] (publish_atom, const std::string host, uint16_t port)
+		[=] (publish_atom, const std::string& host, uint16_t port)
 			-> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
 			try {
 				return {
