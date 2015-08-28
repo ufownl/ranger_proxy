@@ -66,7 +66,7 @@ protected:
 	}
 };
 
-class socks5_test : public ranger_proxy_test {
+class echo_test : public ranger_proxy_test {
 protected:
 	void SetUp() final {
 		m_echo = caf::io::spawn_io(echo_service_impl);

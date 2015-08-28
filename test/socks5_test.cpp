@@ -22,7 +22,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-TEST_F(socks5_test, socks5_no_auth_conn_ipv4) {
+TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
 	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl);
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
@@ -98,11 +98,9 @@ TEST_F(socks5_test, socks5_no_auth_conn_ipv4) {
 		recv(fd, buf, sizeof(buf), 0);
 		EXPECT_STREQ("Hello, world!", buf);
 	}
-
-	caf::anon_send_exit(socks5, caf::exit_reason::kill);
 }
 
-TEST_F(socks5_test, socks5_no_auth_conn_domainname) {
+TEST_F(echo_test, socks5_no_auth_conn_domainname) {
 	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl);
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
@@ -183,6 +181,4 @@ TEST_F(socks5_test, socks5_no_auth_conn_domainname) {
 		recv(fd, buf, sizeof(buf), 0);
 		EXPECT_STREQ("Hello, world!", buf);
 	}
-
-	caf::anon_send_exit(socks5, caf::exit_reason::kill);
 }
