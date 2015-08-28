@@ -17,6 +17,7 @@
 #ifndef RANGER_PROXY_SOCKS5_SESSION_HPP
 #define RANGER_PROXY_SOCKS5_SESSION_HPP
 
+#include <vector>
 #include <functional>
 
 namespace ranger { namespace proxy {
@@ -32,22 +33,30 @@ public:
 	socks5_state(socks5_session::broker_pointer self);
 
 	void init(connection_handle hdl);
-	void handle_new_data(connection_handle hdl, const new_data_msg& msg);
+	void handle_new_data(const new_data_msg& msg);
 	void handle_connect_succ(connection_handle hdl);
 	void handle_connect_fail(const std::string& what);
 
 private:
-	using new_data_handler = void (socks5_state::*)(connection_handle, const new_data_msg&);
+	using new_data_handler = void (socks5_state::*)(const new_data_msg&);
 
-	void handle_select_method_header(connection_handle hdl, const new_data_msg& msg);
-	void handle_select_method_data(connection_handle hdl, const new_data_msg& msg);
-	void handle_request_header(connection_handle hdl, const new_data_msg& msg);
-	void handle_ipv4_request_data(connection_handle hdl, const new_data_msg& msg);
-	void handle_domainname_length(connection_handle hdl, const new_data_msg& msg);
-	void handle_domainname_request_data(connection_handle hdl, const new_data_msg& msg);
-	void handle_stream_data(connection_handle hdl, const new_data_msg& msg);
+	template <class F>
+	void write(connection_handle hdl, std::vector<char> buf, F fun) const {
+		m_self->wr_buf(hdl) = std::move(buf);
+		m_self->flush(hdl);
+		fun();
+	}
 
-	socks5_session::broker_pointer m_self;
+	void handle_select_method_header(const new_data_msg& msg);
+	void handle_select_method_data(const new_data_msg& msg);
+	void handle_request_header(const new_data_msg& msg);
+	void handle_ipv4_request_data(const new_data_msg& msg);
+	void handle_domainname_length(const new_data_msg& msg);
+	void handle_domainname_request_data(const new_data_msg& msg);
+	void handle_stream_data(const new_data_msg& msg);
+
+	const socks5_session::broker_pointer m_self;
+	connection_handle m_local_hdl;
 	connection_handle m_remote_hdl;
 	new_data_handler m_current_handler {nullptr};
 	std::function<void(connection_handle)> m_conn_succ_handler;
