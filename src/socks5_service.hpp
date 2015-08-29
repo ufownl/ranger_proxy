@@ -18,21 +18,41 @@
 #define RANGER_PROXY_SOCKS5_SERVICE_HPP
 
 #include <string>
+#include <vector>
+#include "encryptor.hpp"
 
 namespace ranger { namespace proxy {
 
 using socks5_service =
 	minimal_server::extend<
 		replies_to<publish_atom, uint16_t>
-		::with_either<ok_atom, uint16_t>
-		::or_else<error_atom, std::string>,
+			::with_either<ok_atom, uint16_t>
+			::or_else<error_atom, std::string>,
 		replies_to<publish_atom, std::string, uint16_t>
-		::with_either<ok_atom, uint16_t>
-		::or_else<error_atom, std::string>
+			::with_either<ok_atom, uint16_t>
+			::or_else<error_atom, std::string>,
+		reacts_to<encrypt_atom, std::vector<uint8_t>, std::vector<uint8_t>>
 	>;
 
+class socks5_service_state {
+public:
+	socks5_service_state() = default;
+
+	socks5_service_state(const socks5_service_state&) = delete;
+	socks5_service_state& operator = (const socks5_service_state&) = delete;
+
+	void set_key(const std::vector<uint8_t>& key);
+	void set_ivec(const std::vector<uint8_t>& ivec);
+
+	encryptor spawn_encryptor() const;
+
+private:
+	std::vector<uint8_t> m_key;
+	std::vector<uint8_t> m_ivec;
+};
+
 socks5_service::behavior_type
-socks5_service_impl(socks5_service::broker_pointer self);
+socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self);
 
 } }
 

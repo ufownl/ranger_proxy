@@ -20,36 +20,42 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include "encryptor.hpp"
 
 namespace ranger { namespace proxy {
 
 using socks5_session =
 	minimal_client::extend<
 		reacts_to<ok_atom, connection_handle>,
-		reacts_to<error_atom, std::string>
+		reacts_to<error_atom, std::string>,
+		reacts_to<encrypt_atom, std::vector<char>>,
+		reacts_to<decrypt_atom, std::vector<char>>,
+		reacts_to<close_atom>
 	>;
 
 class socks5_state {
 public:
 	socks5_state(socks5_session::broker_pointer self);
+	~socks5_state();
 
 	socks5_state(const socks5_state&) = delete;
 	socks5_state& operator = (const socks5_state&) = delete;
 
-	void init(connection_handle hdl);
+	void init(connection_handle hdl, encryptor enc);
+
 	void handle_new_data(const new_data_msg& msg);
+	void handle_encrypted_data(const std::vector<char>& buf);
+	void handle_decrypted_data(const std::vector<char>& buf);
+
 	void handle_connect_succ(connection_handle hdl);
 	void handle_connect_fail(const std::string& what);
 
 private:
 	using new_data_handler = void (socks5_state::*)(const new_data_msg&);
 
-	template <class F>
-	void write(connection_handle hdl, std::vector<char> buf, F fun) const {
-		m_self->wr_buf(hdl) = std::move(buf);
-		m_self->flush(hdl);
-		fun();
-	}
+	void write_to_local(std::vector<char> buf) const;
+	void write_to_remote(std::vector<char> buf) const;
+	void write_raw(connection_handle hdl, std::vector<char> buf) const;
 
 	void handle_select_method_header(const new_data_msg& msg);
 	void handle_select_method_data(const new_data_msg& msg);
@@ -62,13 +68,15 @@ private:
 	const socks5_session::broker_pointer m_self;
 	connection_handle m_local_hdl;
 	connection_handle m_remote_hdl;
+	encryptor m_encryptor;
 	new_data_handler m_current_handler {nullptr};
 	std::function<void(connection_handle)> m_conn_succ_handler;
 	std::function<void(const std::string&)> m_conn_fail_handler;
 };
 
 socks5_session::behavior_type
-socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self, connection_handle hdl);
+socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
+					connection_handle hdl, encryptor enc);
 
 } }
 

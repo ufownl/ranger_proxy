@@ -17,16 +17,17 @@
 #include "common.hpp"
 #include "gate_service.hpp"
 #include "gate_session.hpp"
+#include "aes_cfb128_encryptor.hpp"
 
 namespace ranger { namespace proxy {
 
-void gate_service_state::add_host(const std::string& host, uint16_t port) {
-	if (!host.empty() && port != 0) {
-		m_hosts.emplace_back(host, port);
+void gate_service_state::add_host(host_info host) {
+	if (!host.addr.empty() && host.port != 0) {
+		m_hosts.emplace_back(std::move(host));
 	}
 }
 
-std::pair<std::string, uint16_t> gate_service_state::query_host() {
+gate_service_state::host_info gate_service_state::query_host() {
 	if (m_hosts.empty()) {
 		return {"", 0};
 	}
@@ -42,8 +43,12 @@ gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self
 	return {
 		[=] (const new_connection_msg& msg) {
 			auto host = self->state.query_host();
-			if (host.second != 0) {
-				auto forked = self->fork(gate_session_impl, msg.handle, host.first, host.second);
+			if (host.port != 0) {
+				encryptor enc;
+				if (!host.key.empty() || !host.ivec.empty()) {
+					enc = spawn(aes_cfb128_encryptor_impl, host.key, host.ivec);
+				}
+				auto forked = self->fork(gate_session_impl, msg.handle, host.addr, host.port, enc);
 				self->link_to(forked);
 			} else {
 				aout(self) << "ERROR: Hosts list is empty" << std::endl;
@@ -75,8 +80,14 @@ gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self
 				return {error_atom::value, e.what()};
 			}
 		},
-		[=] (add_atom, const std::string& host, uint16_t port) {
-			self->state.add_host(host, port);
+		[=] (	add_atom, const std::string& addr, uint16_t port,
+				const std::vector<uint8_t>& key, const std::vector<uint8_t>& ivec) {
+			gate_service_state::host_info host;
+			host.addr = addr;
+			host.port = port;
+			host.key = key;
+			host.ivec = ivec;
+			self->state.add_host(std::move(host));
 		}
 	};
 }

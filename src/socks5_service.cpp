@@ -17,14 +17,31 @@
 #include "common.hpp"
 #include "socks5_service.hpp"
 #include "socks5_session.hpp"
+#include "aes_cfb128_encryptor.hpp"
 
 namespace ranger { namespace proxy {
 
+void socks5_service_state::set_key(const std::vector<uint8_t>& key) {
+	m_key = key;
+}
+
+void socks5_service_state::set_ivec(const std::vector<uint8_t>& ivec) {
+	m_ivec = ivec;
+}
+
+encryptor socks5_service_state::spawn_encryptor() const {
+	encryptor enc;
+	if (!m_key.empty() || !m_ivec.empty()) {
+		enc = spawn(aes_cfb128_encryptor_impl, m_key, m_ivec);
+	}
+	return enc;
+}
+
 socks5_service::behavior_type
-socks5_service_impl(socks5_service::broker_pointer self) {
+socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self) {
 	return {
 		[=] (const new_connection_msg& msg) {
-			auto forked = self->fork(socks5_session_impl, msg.handle);
+			auto forked = self->fork(socks5_session_impl, msg.handle, self->state.spawn_encryptor());
 			self->link_to(forked);
 		},
 		[] (const new_data_msg&) {},
@@ -51,6 +68,10 @@ socks5_service_impl(socks5_service::broker_pointer self) {
 			} catch (const network_error& e) {
 				return {error_atom::value, e.what()};
 			}
+		},
+		[=] (encrypt_atom, const std::vector<uint8_t>& key, const std::vector<uint8_t>& ivec) {
+			self->state.set_key(key);
+			self->state.set_ivec(ivec);
 		}
 	};
 }

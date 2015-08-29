@@ -48,9 +48,11 @@ int bootstrap(int argc, char* argv[]) {
 	int ret = 0;
 
 	if (res.opts.count("gate") > 0) {
+		std::vector<uint8_t> key;
+		std::vector<uint8_t> ivec;
 		auto serv = spawn_io(gate_service_impl);
 		scoped_actor self;
-		self->send(serv, add_atom::value, remote_host, remote_port);
+		self->send(serv, add_atom::value, remote_host, remote_port, key, ivec);
 		if (host.empty()) {
 			scoped_actor self;
 			self->sync_send(serv, publish_atom::value, port).await(

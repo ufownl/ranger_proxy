@@ -26,26 +26,33 @@ namespace ranger { namespace proxy {
 using gate_service =
 	minimal_server::extend<
 		replies_to<publish_atom, uint16_t>
-		::with_either<ok_atom, uint16_t>
-		::or_else<error_atom, std::string>,
+			::with_either<ok_atom, uint16_t>
+			::or_else<error_atom, std::string>,
 		replies_to<publish_atom, std::string, uint16_t>
-		::with_either<ok_atom, uint16_t>
-		::or_else<error_atom, std::string>,
-		reacts_to<add_atom, std::string, uint16_t>
+			::with_either<ok_atom, uint16_t>
+			::or_else<error_atom, std::string>,
+		reacts_to<add_atom, std::string, uint16_t, std::vector<uint8_t>, std::vector<uint8_t>>
 	>;
 
 class gate_service_state {
 public:
+	struct host_info {
+		std::string addr;
+		uint16_t port;
+		std::vector<uint8_t> key;
+		std::vector<uint8_t> ivec;
+	};
+
 	gate_service_state() = default;
 
 	gate_service_state(const gate_service_state&) = delete;
 	gate_service_state& operator = (const gate_service_state&) = delete;
 
-	void add_host(const std::string& host, uint16_t port);
-	std::pair<std::string, uint16_t> query_host();
+	void add_host(host_info host);
+	host_info query_host();
 
 private:
-	std::vector<std::pair<std::string, uint16_t>> m_hosts;
+	std::vector<host_info> m_hosts;
 	size_t m_index {0};
 };
 

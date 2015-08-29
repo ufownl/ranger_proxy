@@ -17,6 +17,8 @@
 #include "test_util.hpp"
 #include "socks5_service.cpp"
 #include "socks5_session.cpp"
+#include "gate_service.cpp"
+#include "gate_session.cpp"
 #include "connect_helper.cpp"
 #include "aes_cfb128_encryptor.cpp"
 #include <sys/socket.h>
@@ -331,5 +333,108 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_domainname_null) {
 			ASSERT_EQ(sizeof(remote_port), recv(fd, &remote_port, sizeof(remote_port), 0));
 			EXPECT_EQ(htons(0), remote_port);
 		}
+	}
+}
+
+TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
+	std::string str = "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF";
+	std::vector<uint8_t> key(str.begin(), str.end());
+	std::vector<uint8_t> ivec;
+
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl);
+	scope_guard guard_socks5([socks5] {
+		caf::anon_send_exit(socks5, caf::exit_reason::kill);
+	});
+
+	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl);
+	scope_guard guard_gate([gate] {
+		caf::anon_send_exit(gate, caf::exit_reason::kill);
+	});
+
+	uint16_t port = 0;
+	{
+		caf::scoped_actor self;
+		self->send(socks5, ranger::proxy::encrypt_atom::value, key, ivec);
+		self->sync_send(socks5, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
+			[&port] (caf::ok_atom, uint16_t socks5_port) {
+				port = socks5_port;
+			},
+			[] (caf::error_atom, const std::string& what) {
+				std::cout << "ERROR: " << what << std::endl;
+			}
+		);
+	}
+	ASSERT_NE(0, port);
+
+	{
+		caf::scoped_actor self;
+		self->send(gate, caf::add_atom::value, "127.0.0.1", port, key, ivec);
+		self->sync_send(gate, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
+			[&port] (caf::ok_atom, uint16_t gate_port) {
+				port = gate_port;
+			},
+			[] (caf::error_atom, const std::string& what) {
+				std::cout << "ERROR: " << what << std::endl;
+			}
+		);
+	}
+	ASSERT_NE(0, port);
+
+	int fd = socket(AF_INET, SOCK_STREAM, 0);
+	ASSERT_NE(-1, fd);
+	scope_guard guard_fd([fd] { close(fd); });
+
+	sockaddr_in sin;
+	sin.sin_family = AF_INET;
+	sin.sin_addr.s_addr = inet_addr("127.0.0.1");
+	sin.sin_port = htons(port);
+	ASSERT_EQ(0, connect(fd, reinterpret_cast<sockaddr*>(&sin), sizeof(sin)));
+
+	{
+		// version identifier/method selection message
+		uint8_t buf[] = {0x05, 0x01, 0x00};
+		send(fd, buf, sizeof(buf), 0);
+	}
+
+	{
+		// method selection message
+		uint8_t buf[2];
+		ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
+		ASSERT_EQ(0x05, buf[0]);
+		ASSERT_EQ(0x00, buf[1]);
+	}
+
+	{
+		// request
+		uint8_t buf[] = {0x05, 0x01, 0x00, 0x01};
+		send(fd, buf, sizeof(buf), 0);
+		send(fd, &sin.sin_addr, sizeof(sin.sin_addr), 0);
+		uint16_t remote_port = htons(m_port);
+		send(fd, &remote_port, sizeof(remote_port), 0);
+	}
+
+	{
+		// reply
+		uint8_t buf[4];
+		ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
+		ASSERT_EQ(0x05, buf[0]);
+		ASSERT_EQ(0x00, buf[1]);
+		ASSERT_EQ(0x00, buf[2]);
+		ASSERT_EQ(0x01, buf[3]);
+		uint32_t remote_addr;
+		ASSERT_EQ(sizeof(remote_addr), recv(fd, &remote_addr, sizeof(remote_addr), 0));
+		ASSERT_EQ(sin.sin_addr.s_addr, remote_addr);
+		uint16_t remote_port;
+		ASSERT_EQ(sizeof(remote_port), recv(fd, &remote_port, sizeof(remote_port), 0));
+		ASSERT_EQ(htons(m_port), remote_port);
+	}
+
+	{
+		// test data
+		char buf[] = "Hello, world!";
+		send(fd, buf, sizeof(buf), 0);
+		memset(buf, 0, sizeof(buf));
+		ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
+		EXPECT_STREQ("Hello, world!", buf);
 	}
 }

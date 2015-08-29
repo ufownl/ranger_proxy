@@ -20,6 +20,7 @@
 #include <arpa/inet.h>
 #include <algorithm>
 #include <iterator>
+#include <chrono>
 #include <string.h>
 
 namespace ranger { namespace proxy {
@@ -29,16 +30,47 @@ socks5_state::socks5_state(socks5_session::broker_pointer self)
 	// nop
 }
 
-void socks5_state::init(connection_handle hdl) {
+socks5_state::~socks5_state() {
+	if (m_encryptor) {
+		anon_send_exit(m_encryptor, exit_reason::user_shutdown);
+	}
+}
+
+void socks5_state::init(connection_handle hdl, encryptor enc) {
 	m_local_hdl = hdl;
 	m_self->configure_read(m_local_hdl, receive_policy::exactly(2));
+	m_encryptor = enc;
 	m_current_handler = &socks5_state::handle_select_method_header;
 }
 
 void socks5_state::handle_new_data(const new_data_msg& msg) {
-	if (m_current_handler) {
+	if (m_encryptor && msg.handle == m_local_hdl) {
+		if (m_current_handler == &socks5_state::handle_stream_data) {
+			m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
+		} else {
+			scoped_actor self;
+			self->sync_send(m_encryptor, decrypt_atom::value, msg.buf).await(
+				[this] (decrypt_atom, const std::vector<char>& buf) {
+					if (m_current_handler) {
+						new_data_msg msg;
+						msg.handle = m_local_hdl;
+						msg.buf = buf;
+						(this->*m_current_handler)(msg);
+					}
+				}
+			);
+		}
+	} else if (m_current_handler) {
 		(this->*m_current_handler)(msg);
 	}
+}
+
+void socks5_state::handle_encrypted_data(const std::vector<char>& buf) {
+	write_raw(m_local_hdl, buf);
+}
+
+void socks5_state::handle_decrypted_data(const std::vector<char>& buf) {
+	write_to_remote(buf);
 }
 
 void socks5_state::handle_connect_succ(connection_handle hdl) {
@@ -51,6 +83,23 @@ void socks5_state::handle_connect_fail(const std::string& what) {
 	if (m_conn_fail_handler) {
 		m_conn_fail_handler(what);
 	}
+}
+
+void socks5_state::write_to_local(std::vector<char> buf) const {
+	if (m_encryptor) {
+		m_self->send(m_encryptor, encrypt_atom::value, std::move(buf));
+	} else {
+		write_raw(m_local_hdl, std::move(buf));
+	}
+}
+
+void socks5_state::write_to_remote(std::vector<char> buf) const {
+	write_raw(m_remote_hdl, std::move(buf));
+}
+
+void socks5_state::write_raw(connection_handle hdl, std::vector<char> buf) const {
+	m_self->wr_buf(hdl) = std::move(buf);
+	m_self->flush(hdl);
 }
 
 void socks5_state::handle_select_method_header(const new_data_msg& msg) {
@@ -66,15 +115,12 @@ void socks5_state::handle_select_method_header(const new_data_msg& msg) {
 
 void socks5_state::handle_select_method_data(const new_data_msg& msg) {
 	if (std::find(msg.buf.begin(), msg.buf.end(), 0) != msg.buf.end()) {
-		write(m_local_hdl, {0x05, 0x00}, [this] {
-			m_self->configure_read(m_local_hdl, receive_policy::exactly(4));
-			m_current_handler = &socks5_state::handle_request_header;
-		});
+		write_to_local({0x05, 0x00});
+		m_self->configure_read(m_local_hdl, receive_policy::exactly(4));
+		m_current_handler = &socks5_state::handle_request_header;
 	} else {
 		aout(m_self) << "ERROR: NO ACCEPTABLE METHODS" << std::endl;
-		write(m_local_hdl, {0x05, static_cast<char>(0xFF)}, [this] {
-			m_self->quit();
-		});
+		write_to_local({0x05, static_cast<char>(0xFF)});
 	}
 }
 
@@ -87,9 +133,8 @@ void socks5_state::handle_request_header(const new_data_msg& msg) {
 
 	if (static_cast<uint8_t>(msg.buf[1]) != 0x01) {
 		aout(m_self) << "ERROR: Command not supported" << std::endl;
-		write(m_local_hdl, {0x05, 0x07, 0x00, 0x01}, [this] {
-			m_self->quit();
-		});
+		write_to_local({0x05, 0x07, 0x00, 0x01});
+		m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
 		return;
 	}
 
@@ -105,9 +150,8 @@ void socks5_state::handle_request_header(const new_data_msg& msg) {
 	}
 
 	aout(m_self) << "ERROR: Address type not supported" << std::endl;
-	write(m_local_hdl, {0x05, 0x08, 0x00, 0x01}, [this] {
-		m_self->quit();
-	});
+	write_to_local({0x05, 0x08, 0x00, 0x01});
+		m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
 }
 
 void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
@@ -132,10 +176,9 @@ void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
 		std::vector<char> buf = {0x05, 0x00, 0x00, 0x01};
 		std::copy(reinterpret_cast<const char*>(&addr), reinterpret_cast<const char*>(&addr) + sizeof(addr), std::back_inserter(buf));
 		std::copy(reinterpret_cast<const char*>(&port), reinterpret_cast<const char*>(&port) + sizeof(port), std::back_inserter(buf));
-		write(m_local_hdl, std::move(buf), [this] {
-			m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
-			m_current_handler = &socks5_state::handle_stream_data;
-		});
+		write_to_local(std::move(buf));
+		m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
+		m_current_handler = &socks5_state::handle_stream_data;
 	};
 
 	m_conn_fail_handler = [this, addr, port] (const std::string& what) {
@@ -143,9 +186,8 @@ void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
 		std::vector<char> buf = {0x05, 0x05, 0x00, 0x01};
 		std::copy(reinterpret_cast<const char*>(&addr), reinterpret_cast<const char*>(&addr) + sizeof(addr), std::back_inserter(buf));
 		std::copy(reinterpret_cast<const char*>(&port), reinterpret_cast<const char*>(&port) + sizeof(port), std::back_inserter(buf));
-		write(m_local_hdl, std::move(buf), [this] {
-			m_self->quit();
-		});
+		write_to_local(std::move(buf));
+		m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
 	};
 }
 
@@ -175,10 +217,9 @@ void socks5_state::handle_domainname_request_data(const new_data_msg& msg) {
 		std::vector<char> buf = {0x05, 0x00, 0x00, 0x03, static_cast<char>(host.size())};
 		std::copy(host.begin(), host.end(), std::back_inserter(buf));
 		std::copy(reinterpret_cast<const char*>(&port), reinterpret_cast<const char*>(&port) + sizeof(port), std::back_inserter(buf));
-		write(m_local_hdl, std::move(buf), [this] {
-			m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
-			m_current_handler = &socks5_state::handle_stream_data;
-		});
+		write_to_local(std::move(buf));
+		m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
+		m_current_handler = &socks5_state::handle_stream_data;
 	};
 
 	m_conn_fail_handler = [this, host, port] (const std::string& what) {
@@ -186,23 +227,23 @@ void socks5_state::handle_domainname_request_data(const new_data_msg& msg) {
 		std::vector<char> buf = {0x05, 0x05, 0x00, 0x03, static_cast<char>(host.size())};
 		std::copy(host.begin(), host.end(), std::back_inserter(buf));
 		std::copy(reinterpret_cast<const char*>(&port), reinterpret_cast<const char*>(&port) + sizeof(port), std::back_inserter(buf));
-		write(m_local_hdl, std::move(buf), [this] {
-			m_self->quit();
-		});
+		write_to_local(std::move(buf));
+		m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
 	};
 }
 
 void socks5_state::handle_stream_data(const new_data_msg& msg) {
 	if (msg.handle == m_local_hdl) {
-		write(m_remote_hdl, msg.buf, [] {});
+		write_to_remote(msg.buf);
 	} else {
-		write(m_local_hdl, msg.buf, [] {});
+		write_to_local(msg.buf);
 	}
 }
 
 socks5_session::behavior_type
-socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self, connection_handle hdl) {
-	self->state.init(hdl);
+socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
+					connection_handle hdl, encryptor enc) {
+	self->state.init(hdl, enc);
 	return {
 		[self] (const new_data_msg& msg) {
 			self->state.handle_new_data(msg);
@@ -215,6 +256,15 @@ socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self, 
 		},
 		[self] (error_atom, const std::string& what) {
 			self->state.handle_connect_fail(what);
+		},
+		[self] (encrypt_atom, const std::vector<char>& buf) {
+			self->state.handle_encrypted_data(buf);
+		},
+		[self] (decrypt_atom, const std::vector<char>& buf) {
+			self->state.handle_decrypted_data(buf);
+		},
+		[self] (close_atom) {
+			self->quit();
 		}
 	};
 }
