@@ -31,8 +31,8 @@ public:
 
 	void init(std::vector<uint8_t> key, std::vector<uint8_t> ivec);
 
-	std::vector<uint8_t> encrypt(const std::vector<uint8_t>& in);
-	std::vector<uint8_t> decrypt(const std::vector<uint8_t>& in);
+	std::vector<char> encrypt(const std::vector<char>& in);
+	std::vector<char> decrypt(const std::vector<char>& in);
 
 private:
 	AES_KEY m_key {0};

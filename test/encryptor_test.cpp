@@ -28,23 +28,23 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_128) {
 		caf::anon_send_exit(enc, caf::exit_reason::kill);
 	});
 
-	std::vector<uint8_t> plain = {'H', 'e', 'l', 'l', 'o'};
-	std::vector<uint8_t> cipher;
+	std::vector<char> plain = {'H', 'e', 'l', 'l', 'o'};
+	std::vector<char> cipher;
 	{
 		caf::scoped_actor self;
 		self->sync_send(enc, ranger::proxy::encrypt_atom::value, plain).await(
-			[&plain, &cipher] (const std::vector<uint8_t>& out) {
+			[&plain, &cipher] (ranger::proxy::encrypt_atom, const std::vector<char>& out) {
 				cipher = out;
 			}
 		);
 	}
 	EXPECT_NE(plain, cipher);
 
-	std::vector<uint8_t> decrypt;
+	std::vector<char> decrypt;
 	{
 		caf::scoped_actor self;
 		self->sync_send(enc, ranger::proxy::decrypt_atom::value, cipher).await(
-			[&cipher, &decrypt] (const std::vector<uint8_t>& out) {
+			[&cipher, &decrypt] (ranger::proxy::decrypt_atom, const std::vector<char>& out) {
 				decrypt = out;
 			}
 		);
@@ -64,23 +64,23 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_192) {
 		caf::anon_send_exit(enc, caf::exit_reason::kill);
 	});
 
-	std::vector<uint8_t> plain = {'W', 'o', 'r', 'l', 'd'};
-	std::vector<uint8_t> cipher;
+	std::vector<char> plain = {'W', 'o', 'r', 'l', 'd'};
+	std::vector<char> cipher;
 	{
 		caf::scoped_actor self;
 		self->sync_send(enc, ranger::proxy::encrypt_atom::value, plain).await(
-			[&plain, &cipher] (const std::vector<uint8_t>& out) {
+			[&plain, &cipher] (ranger::proxy::encrypt_atom, const std::vector<char>& out) {
 				cipher = out;
 			}
 		);
 	}
 	EXPECT_NE(plain, cipher);
 
-	std::vector<uint8_t> decrypt;
+	std::vector<char> decrypt;
 	{
 		caf::scoped_actor self;
 		self->sync_send(enc, ranger::proxy::decrypt_atom::value, cipher).await(
-			[&cipher, &decrypt] (const std::vector<uint8_t>& out) {
+			[&cipher, &decrypt] (ranger::proxy::decrypt_atom, const std::vector<char>& out) {
 				decrypt = out;
 			}
 		);
@@ -100,23 +100,23 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_256) {
 		caf::anon_send_exit(enc, caf::exit_reason::kill);
 	});
 
-	std::vector<uint8_t> plain = {'R', 'a', 'n', 'g', 'e', 'r'};
-	std::vector<uint8_t> cipher;
+	std::vector<char> plain = {'R', 'a', 'n', 'g', 'e', 'r'};
+	std::vector<char> cipher;
 	{
 		caf::scoped_actor self;
 		self->sync_send(enc, ranger::proxy::encrypt_atom::value, plain).await(
-			[&plain, &cipher] (const std::vector<uint8_t>& out) {
+			[&plain, &cipher] (ranger::proxy::encrypt_atom, const std::vector<char>& out) {
 				cipher = out;
 			}
 		);
 	}
 	EXPECT_NE(plain, cipher);
 
-	std::vector<uint8_t> decrypt;
+	std::vector<char> decrypt;
 	{
 		caf::scoped_actor self;
 		self->sync_send(enc, ranger::proxy::decrypt_atom::value, cipher).await(
-			[&cipher, &decrypt] (const std::vector<uint8_t>& out) {
+			[&cipher, &decrypt] (ranger::proxy::decrypt_atom, const std::vector<char>& out) {
 				decrypt = out;
 			}
 		);
