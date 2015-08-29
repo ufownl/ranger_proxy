@@ -14,6 +14,7 @@ ranger_proxy --help
 Allowed options:
   -H [--host] arg    : set host
   -p [--port] arg    : set port (default: 1080)
+  --password arg     : set password (default: empty)
   -G [--gate]        : run in gate mode
   --remote_host arg  : set remote host (only used in gate mode)
   --remote_port arg  : set remote port (only used in gate mode)
@@ -37,6 +38,7 @@ make install
   * Clang >= 3.2
 * [CMake](http://www.cmake.org)
 * [C++ Actor Framework](https://github.com/actor-framework/actor-framework) (develop分支)
+* [OpenSSL](http://www.openssl.org)
 
 ## SOCKS5特性支持
 **ranger_proxy**目前只支持部分SOCKS5特性。
