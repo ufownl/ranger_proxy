@@ -11,6 +11,13 @@ ranger_proxy
 查看帮助信息：
 ```
 ranger_proxy --help
+Allowed options:
+  -H [--host] arg    : set host
+  -p [--port] arg    : set port (default: 1080)
+  -G [--gate]        : run in gate mode
+  --remote_host arg  : set remote host (only used in gate mode)
+  --remote_port arg  : set remote port (only used in gate mode)
+  -h [-?,--help]     : print this text
 ```
 
 ## 安装
