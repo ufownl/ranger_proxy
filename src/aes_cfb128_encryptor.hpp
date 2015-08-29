@@ -35,7 +35,7 @@ public:
 	std::vector<char> decrypt(const std::vector<char>& in);
 
 private:
-	AES_KEY m_key {0};
+	AES_KEY m_key {{0}};
 	std::vector<uint8_t> m_encrypt_ivec;
 	int m_encrypt_num {0};
 	std::vector<uint8_t> m_decrypt_ivec;
