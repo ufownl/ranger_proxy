@@ -24,12 +24,14 @@ using namespace ranger::proxy;
 int bootstrap(int argc, char* argv[]) {
 	std::string host;
 	uint16_t port = 1080;
+	std::string pwd;
 	std::string remote_host;
 	uint16_t remote_port = 0;
 
 	auto res = message_builder(argv + 1, argv + argc).extract_opts({
 		{"host,H", "set host", host},
 		{"port,p", "set port (default: 1080)", port},
+		{"password", "set password (default: empty)", pwd},
 		{"gate,G", "run in gate mode"},
 		{"remote_host", "set remote host (only used in gate mode)", remote_host},
 		{"remote_port", "set remote port (only used in gate mode)", remote_port}
@@ -48,7 +50,7 @@ int bootstrap(int argc, char* argv[]) {
 	int ret = 0;
 
 	if (res.opts.count("gate") > 0) {
-		std::vector<uint8_t> key;
+		std::vector<uint8_t> key(pwd.begin(), pwd.end());
 		std::vector<uint8_t> ivec;
 		auto serv = spawn_io(gate_service_impl);
 		scoped_actor self;
@@ -81,9 +83,12 @@ int bootstrap(int argc, char* argv[]) {
 			anon_send_exit(serv, exit_reason::kill);
 		}
 	} else {
+		std::vector<uint8_t> key(pwd.begin(), pwd.end());
+		std::vector<uint8_t> ivec;
 		auto serv = spawn_io(socks5_service_impl);
 		if (host.empty()) {
 			scoped_actor self;
+			self->send(serv, encrypt_atom::value, key, ivec);
 			self->sync_send(serv, publish_atom::value, port).await(
 				[] (ok_atom, uint16_t) {
 					std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
@@ -95,6 +100,7 @@ int bootstrap(int argc, char* argv[]) {
 			);
 		} else {
 			scoped_actor self;
+			self->send(serv, encrypt_atom::value, key, ivec);
 			self->sync_send(serv, publish_atom::value, host, port).await(
 				[] (ok_atom, uint16_t) {
 					std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
