@@ -17,6 +17,8 @@
 #ifndef RANGER_PROXY_GATE_SESSION_HPP
 #define RANGER_PROXY_GATE_SESSION_HPP
 
+#include <vector>
+
 namespace ranger { namespace proxy {
 
 using gate_session =
@@ -41,6 +43,7 @@ private:
 	const gate_session::broker_pointer m_self;
 	connection_handle m_local_hdl;
 	connection_handle m_remote_hdl;
+	std::vector<char> m_buf;
 };
 
 gate_session::behavior_type

@@ -117,7 +117,7 @@ void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
 	memcpy(&port, &msg.buf[4], sizeof(port));
 	port = ntohs(port);
 
-	auto helper = m_self->spawn<linked>(connect_helper_impl, &m_self->parent().backend());
+	auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
 	m_self->send(helper, connect_atom::value, inet_ntoa(addr), port);
 
 	m_self->configure_read(m_local_hdl, receive_policy::at_most(8192));
@@ -160,7 +160,7 @@ void socks5_state::handle_domainname_request_data(const new_data_msg& msg) {
 	memcpy(&port, &msg.buf[msg.buf.size() - 2], sizeof(port));
 	port = ntohs(port);
 
-	auto helper = m_self->spawn<linked>(connect_helper_impl, &m_self->parent().backend());
+	auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
 	m_self->send(helper, connect_atom::value, host, port);
 
 	m_self->configure_read(m_local_hdl, receive_policy::at_most(8192));

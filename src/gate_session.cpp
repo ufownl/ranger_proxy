@@ -17,6 +17,8 @@
 #include "common.hpp"
 #include "gate_session.hpp"
 #include "connect_helper.hpp"
+#include <algorithm>
+#include <iterator>
 
 namespace ranger { namespace proxy {
 
@@ -27,15 +29,20 @@ gate_state::gate_state(gate_session::broker_pointer self)
 
 void gate_state::init(connection_handle hdl, const std::string& host, uint16_t port) {
 	m_local_hdl = hdl;
+	m_self->configure_read(m_local_hdl, receive_policy::at_most(8192));
 
-	auto helper = m_self->spawn<linked>(connect_helper_impl, &m_self->parent().backend());
+	auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
 	m_self->send(helper, connect_atom::value, host, port);
 }
 
 void gate_state::handle_new_data(const new_data_msg& msg) {
 	if (msg.handle == m_local_hdl) {
-		m_self->write(m_remote_hdl, msg.buf.size(), msg.buf.data());
-		m_self->flush(m_remote_hdl);
+		if (m_remote_hdl.invalid()) {
+			std::copy(msg.buf.begin(), msg.buf.end(), std::back_inserter(m_buf));
+		} else {
+			m_self->write(m_remote_hdl, msg.buf.size(), msg.buf.data());
+			m_self->flush(m_remote_hdl);
+		}
 	} else {
 		m_self->write(m_local_hdl, msg.buf.size(), msg.buf.data());
 		m_self->flush(m_local_hdl);
@@ -45,9 +52,12 @@ void gate_state::handle_new_data(const new_data_msg& msg) {
 void gate_state::handle_connect_succ(connection_handle hdl) {
 	m_self->assign_tcp_scribe(hdl);
 	m_remote_hdl = hdl;
-
-	m_self->configure_read(m_local_hdl, receive_policy::at_most(8192));
 	m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
+
+	if (!m_buf.empty()) {
+		m_self->wr_buf(m_remote_hdl) = std::move(m_buf);
+		m_self->flush(m_remote_hdl);
+	}
 }
 
 void gate_state::handle_connect_fail(const std::string& what) {
