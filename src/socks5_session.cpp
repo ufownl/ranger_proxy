@@ -109,11 +109,15 @@ void socks5_state::handle_select_method_header(const new_data_msg& msg) {
 		return;
 	}
 
-	m_self->configure_read(m_local_hdl, receive_policy::exactly(static_cast<uint8_t>(msg.buf[1])));
+	uint8_t nmethods = msg.buf[1];
+	aout(m_self) << "INFO: recv select method header"
+		<< " (nmethods == " << nmethods << ")" << std::endl;
+	m_self->configure_read(m_local_hdl, receive_policy::exactly(nmethods));
 	m_current_handler = &socks5_state::handle_select_method_data;
 }
 
 void socks5_state::handle_select_method_data(const new_data_msg& msg) {
+	aout(m_self) << "INFO: recv select method data" << std::endl;
 	if (std::find(msg.buf.begin(), msg.buf.end(), 0) != msg.buf.end()) {
 		write_to_local({0x05, 0x00});
 		m_self->configure_read(m_local_hdl, receive_policy::exactly(4));
@@ -131,6 +135,8 @@ void socks5_state::handle_request_header(const new_data_msg& msg) {
 		return;
 	}
 
+	aout(m_self) << "INFO: recv request header" << std::endl;
+
 	if (static_cast<uint8_t>(msg.buf[1]) != 0x01) {
 		aout(m_self) << "ERROR: Command not supported" << std::endl;
 		write_to_local({0x05, 0x07, 0x00, 0x01});
@@ -140,10 +146,12 @@ void socks5_state::handle_request_header(const new_data_msg& msg) {
 
 	switch (static_cast<uint8_t>(msg.buf[3])) {
 	case 0x01:	// IPV4
+		aout(m_self) << "INFO: CMD[connect] ADDR[ipv4]" << std::endl;
 		m_self->configure_read(m_local_hdl, receive_policy::exactly(6));
 		m_current_handler = &socks5_state::handle_ipv4_request_data;
 		return;
 	case 0x03:	// DOMAINNAME
+		aout(m_self) << "INFO: CMD[connect] ADDR[domainname]" << std::endl;
 		m_self->configure_read(m_local_hdl, receive_policy::exactly(1));
 		m_current_handler = &socks5_state::handle_domainname_length;
 		return;
@@ -161,6 +169,8 @@ void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
 	memcpy(&port, &msg.buf[4], sizeof(port));
 	port = ntohs(port);
 
+	aout(m_self) << "INFO: connect to " << inet_ntoa(addr) << ":" << port << std::endl;
+
 	auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
 	m_self->send(helper, connect_atom::value, inet_ntoa(addr), port);
 
@@ -172,6 +182,8 @@ void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
 	m_conn_succ_handler = [this, addr, port] (connection_handle remote_hdl) {
 		m_self->assign_tcp_scribe(remote_hdl);
 		m_remote_hdl = remote_hdl;
+
+		aout(m_self) << "INFO: " << inet_ntoa(addr) << ":" << port << " connected" << std::endl;
 		
 		std::vector<char> buf = {0x05, 0x00, 0x00, 0x01};
 		std::copy(reinterpret_cast<const char*>(&addr), reinterpret_cast<const char*>(&addr) + sizeof(addr), std::back_inserter(buf));
@@ -202,6 +214,8 @@ void socks5_state::handle_domainname_request_data(const new_data_msg& msg) {
 	memcpy(&port, &msg.buf[msg.buf.size() - 2], sizeof(port));
 	port = ntohs(port);
 
+	aout(m_self) << "INFO: connect to " << host << ":" << port << std::endl;
+
 	auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
 	m_self->send(helper, connect_atom::value, host, port);
 
@@ -213,6 +227,8 @@ void socks5_state::handle_domainname_request_data(const new_data_msg& msg) {
 	m_conn_succ_handler = [this, host, port] (connection_handle remote_hdl) {
 		m_self->assign_tcp_scribe(remote_hdl);
 		m_remote_hdl = remote_hdl;
+
+		aout(m_self) << "INFO: " << host << ":" << port << " connected" << std::endl;
 
 		std::vector<char> buf = {0x05, 0x00, 0x00, 0x03, static_cast<char>(host.size())};
 		std::copy(host.begin(), host.end(), std::back_inserter(buf));
