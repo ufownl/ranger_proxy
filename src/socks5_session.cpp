@@ -175,7 +175,7 @@ void socks5_state::handle_request_header(const new_data_msg& msg) {
 
 	aout(m_self) << "ERROR: Address type not supported" << std::endl;
 	write_to_local({0x05, 0x08, 0x00, 0x01});
-		m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
+	m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
 }
 
 void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
