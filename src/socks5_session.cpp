@@ -98,7 +98,12 @@ void socks5_state::write_to_remote(std::vector<char> buf) const {
 }
 
 void socks5_state::write_raw(connection_handle hdl, std::vector<char> buf) const {
-	m_self->wr_buf(hdl) = std::move(buf);
+	auto& wr_buf = m_self->wr_buf(hdl);
+	if (wr_buf.empty()) {
+		wr_buf = std::move(buf);
+	} else {
+		std::copy(buf.begin(), buf.end(), std::back_inserter(wr_buf));
+	}
 	m_self->flush(hdl);
 }
 
@@ -186,8 +191,12 @@ void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
 		aout(m_self) << "INFO: " << inet_ntoa(addr) << ":" << port << " connected" << std::endl;
 		
 		std::vector<char> buf = {0x05, 0x00, 0x00, 0x01};
-		std::copy(reinterpret_cast<const char*>(&addr), reinterpret_cast<const char*>(&addr) + sizeof(addr), std::back_inserter(buf));
-		std::copy(reinterpret_cast<const char*>(&port), reinterpret_cast<const char*>(&port) + sizeof(port), std::back_inserter(buf));
+		std::copy(	reinterpret_cast<const char*>(&addr),
+					reinterpret_cast<const char*>(&addr) + sizeof(addr),
+					std::back_inserter(buf));
+		std::copy(	reinterpret_cast<const char*>(&port),
+					reinterpret_cast<const char*>(&port) + sizeof(port),
+					std::back_inserter(buf));
 		write_to_local(std::move(buf));
 		m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
 		m_current_handler = &socks5_state::handle_stream_data;
@@ -196,8 +205,12 @@ void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
 	m_conn_fail_handler = [this, addr, port] (const std::string& what) {
 		aout(m_self) << "ERROR: " << what << std::endl;
 		std::vector<char> buf = {0x05, 0x05, 0x00, 0x01};
-		std::copy(reinterpret_cast<const char*>(&addr), reinterpret_cast<const char*>(&addr) + sizeof(addr), std::back_inserter(buf));
-		std::copy(reinterpret_cast<const char*>(&port), reinterpret_cast<const char*>(&port) + sizeof(port), std::back_inserter(buf));
+		std::copy(	reinterpret_cast<const char*>(&addr),
+					reinterpret_cast<const char*>(&addr) + sizeof(addr),
+					std::back_inserter(buf));
+		std::copy(	reinterpret_cast<const char*>(&port),
+					reinterpret_cast<const char*>(&port) + sizeof(port),
+					std::back_inserter(buf));
 		write_to_local(std::move(buf));
 		m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
 	};
@@ -232,7 +245,9 @@ void socks5_state::handle_domainname_request_data(const new_data_msg& msg) {
 
 		std::vector<char> buf = {0x05, 0x00, 0x00, 0x03, static_cast<char>(host.size())};
 		std::copy(host.begin(), host.end(), std::back_inserter(buf));
-		std::copy(reinterpret_cast<const char*>(&port), reinterpret_cast<const char*>(&port) + sizeof(port), std::back_inserter(buf));
+		std::copy(	reinterpret_cast<const char*>(&port),
+					reinterpret_cast<const char*>(&port) + sizeof(port),
+					std::back_inserter(buf));
 		write_to_local(std::move(buf));
 		m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
 		m_current_handler = &socks5_state::handle_stream_data;
@@ -242,7 +257,9 @@ void socks5_state::handle_domainname_request_data(const new_data_msg& msg) {
 		aout(m_self) << "ERROR: " << what << std::endl;
 		std::vector<char> buf = {0x05, 0x05, 0x00, 0x03, static_cast<char>(host.size())};
 		std::copy(host.begin(), host.end(), std::back_inserter(buf));
-		std::copy(reinterpret_cast<const char*>(&port), reinterpret_cast<const char*>(&port) + sizeof(port), std::back_inserter(buf));
+		std::copy(	reinterpret_cast<const char*>(&port),
+					reinterpret_cast<const char*>(&port) + sizeof(port),
+					std::back_inserter(buf));
 		write_to_local(std::move(buf));
 		m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
 	};

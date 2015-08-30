@@ -84,7 +84,13 @@ void gate_state::handle_connect_succ(connection_handle hdl) {
 		if (m_encryptor) {
 			m_self->send(m_encryptor, encrypt_atom::value, std::move(m_buf));
 		} else {
-			m_self->wr_buf(m_remote_hdl) = std::move(m_buf);
+			auto& wr_buf = m_self->wr_buf(m_remote_hdl);
+			if (wr_buf.empty()) {
+				wr_buf = std::move(m_buf);
+			} else {
+				std::copy(m_buf.begin(), m_buf.end(), std::back_inserter(wr_buf));
+				m_buf.clear();
+			}
 			m_self->flush(m_remote_hdl);
 		}
 	}
