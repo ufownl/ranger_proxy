@@ -41,7 +41,7 @@ public:
 	socks5_state(const socks5_state&) = delete;
 	socks5_state& operator = (const socks5_state&) = delete;
 
-	void init(connection_handle hdl, encryptor enc);
+	void init(connection_handle hdl, encryptor enc, bool verbose);
 
 	void handle_new_data(const new_data_msg& msg);
 	void handle_encrypted_data(const std::vector<char>& buf);
@@ -69,6 +69,7 @@ private:
 	connection_handle m_local_hdl;
 	connection_handle m_remote_hdl;
 	encryptor m_encryptor;
+	bool m_verbose {false};
 	new_data_handler m_current_handler {nullptr};
 	std::function<void(connection_handle)> m_conn_succ_handler;
 	std::function<void(const std::string&)> m_conn_fail_handler;
@@ -76,7 +77,7 @@ private:
 
 socks5_session::behavior_type
 socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
-					connection_handle hdl, encryptor enc);
+					connection_handle hdl, encryptor enc, bool verbose);
 
 } }
 

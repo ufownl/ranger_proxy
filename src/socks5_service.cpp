@@ -38,16 +38,18 @@ encryptor socks5_service_state::spawn_encryptor() const {
 }
 
 socks5_service::behavior_type
-socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self) {
+socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self, bool verbose) {
 	return {
-		[=] (const new_connection_msg& msg) {
-			auto forked = self->fork(socks5_session_impl, msg.handle, self->state.spawn_encryptor());
+		[self, verbose] (const new_connection_msg& msg) {
+			auto forked =
+				self->fork(	socks5_session_impl, msg.handle,
+							self->state.spawn_encryptor(), verbose);
 			self->link_to(forked);
 		},
 		[] (const new_data_msg&) {},
 		[] (const connection_closed_msg&) {},
 		[] (const acceptor_closed_msg&) {},
-		[=] (publish_atom, uint16_t port)
+		[self] (publish_atom, uint16_t port)
 			-> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
 			try {
 				return {
@@ -58,7 +60,7 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
 				return {error_atom::value, e.what()};
 			}
 		},
-		[=] (publish_atom, const std::string& host, uint16_t port)
+		[self] (publish_atom, const std::string& host, uint16_t port)
 			-> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
 			try {
 				return {
@@ -69,7 +71,7 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
 				return {error_atom::value, e.what()};
 			}
 		},
-		[=] (encrypt_atom, const std::vector<uint8_t>& key, const std::vector<uint8_t>& ivec) {
+		[self] (encrypt_atom, const std::vector<uint8_t>& key, const std::vector<uint8_t>& ivec) {
 			self->state.set_key(key);
 			self->state.set_ivec(ivec);
 		}

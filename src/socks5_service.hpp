@@ -52,7 +52,7 @@ private:
 };
 
 socks5_service::behavior_type
-socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self);
+socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self, bool verbose);
 
 } }
 

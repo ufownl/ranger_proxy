@@ -34,7 +34,8 @@ int bootstrap(int argc, char* argv[]) {
 		{"password", "set password (default: empty)", pwd},
 		{"gate,G", "run in gate mode"},
 		{"remote_host", "set remote host (only used in gate mode)", remote_host},
-		{"remote_port", "set remote port (only used in gate mode)", remote_port}
+		{"remote_port", "set remote port (only used in gate mode)", remote_port},
+		{"verbose,v", "enable verbose output (default: disable)"}
 	});
 
 	if (!res.error.empty()) {
@@ -85,7 +86,7 @@ int bootstrap(int argc, char* argv[]) {
 	} else {
 		std::vector<uint8_t> key(pwd.begin(), pwd.end());
 		std::vector<uint8_t> ivec;
-		auto serv = spawn_io(socks5_service_impl);
+		auto serv = spawn_io(socks5_service_impl, res.opts.count("verbose") > 0);
 		if (host.empty()) {
 			scoped_actor self;
 			self->send(serv, encrypt_atom::value, key, ivec);
