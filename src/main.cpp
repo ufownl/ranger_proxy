@@ -17,11 +17,126 @@
 #include "common.hpp"
 #include "socks5_service.hpp"
 #include "gate_service.hpp"
+#include <rapidxml.hpp>
+#include <rapidxml_utils.hpp>
+#include <algorithm>
+#include <iterator>
+#include <string.h>
 #include <stdlib.h>
 #include <time.h>
 
 using namespace ranger;
 using namespace ranger::proxy;
+
+int bootstrap_with_config(const std::string& config, bool verbose) {
+	int final_ret = 0;
+	try {
+		rapidxml::file<> fin(config.c_str());
+		rapidxml::xml_document<> doc;
+		doc.parse<0>(fin.data());
+		for (auto i = doc.first_node("ranger_proxy"); i; i = i->next_sibling("ranger_proxy")) {
+			int ret = 0;
+
+			std::string host;
+			auto node = i->first_node("host");
+			if (node) {
+				host = node->value();
+			}
+
+			uint16_t port = 1080;
+			node = i->first_node("port");
+			if (node) {
+				port = atoi(node->value());
+			}
+
+			node = i->first_node("gate");
+			if (node && atoi(node->value())) {
+				auto serv = spawn_io(gate_service_impl);
+				scoped_actor self;
+				for (auto j = i->first_node("remote_host"); j; j = j->next_sibling("remote_host")) {
+					std::string remote_addr;
+					node = j->first_node("address");
+					if (node) {
+						remote_addr = node->value();
+					}
+
+					uint16_t remote_port = 0;
+					node = j->first_node("port");
+					if (node) {
+						remote_port = atoi(node->value());
+					}
+
+					std::vector<uint8_t> key;
+					node = j->first_node("password");
+					if (node) {
+						std::copy(	node->value(),
+									node->value() + strlen(node->value()),
+									std::back_inserter(key));
+					}
+
+					std::vector<uint8_t> ivec;
+					self->send(serv, add_atom::value, remote_addr, remote_port, key, ivec);
+				}
+
+				auto ok_hdl = [] (ok_atom, uint16_t) {
+					std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
+				};
+				auto err_hdl = [&ret] (error_atom, const std::string& what) {
+					std::cout << "ERROR: " << what << std::endl;
+					ret = 1;
+				};
+				if (host.empty()) {
+					self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
+				} else {
+					self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
+				}
+
+				if (ret) {
+					anon_send_exit(serv, exit_reason::kill);
+					final_ret += ret;
+				}
+			} else {
+				auto serv = spawn_io(socks5_service_impl, verbose);
+				scoped_actor self;
+				std::vector<uint8_t> key;
+				node = i->first_node("password");
+				if (node) {
+					std::copy(	node->value(),
+								node->value() + strlen(node->value()),
+								std::back_inserter(key));
+				}
+
+				std::vector<uint8_t> ivec;
+				self->send(serv, encrypt_atom::value, key, ivec);
+
+				auto ok_hdl = [] (ok_atom, uint16_t) {
+					std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
+				};
+				auto err_hdl = [&ret] (error_atom, const std::string& what) {
+					std::cout << "ERROR: " << what << std::endl;
+					ret = 1;
+				};
+				if (host.empty()) {
+					self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
+				} else {
+					self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
+				}
+
+				if (ret) {
+					anon_send_exit(serv, exit_reason::kill);
+					final_ret += ret;
+				}
+			}
+		}
+	} catch (const rapidxml::parse_error& e) {
+		std::cout << "ERROR: " << e.what() << " [" << e.where<const char>() << "]" << std::endl;
+		final_ret += 1;
+	} catch (const std::runtime_error& e) {
+		std::cout << "ERROR: " << e.what() << std::endl;
+		final_ret += 1;
+	}
+	return final_ret;
+}
 
 int bootstrap(int argc, char* argv[]) {
 	std::string host;
@@ -29,6 +144,7 @@ int bootstrap(int argc, char* argv[]) {
 	std::string pwd;
 	std::string remote_host;
 	uint16_t remote_port = 0;
+	std::string config;
 
 	auto res = message_builder(argv + 1, argv + argc).extract_opts({
 		{"host,H", "set host", host},
@@ -37,6 +153,7 @@ int bootstrap(int argc, char* argv[]) {
 		{"gate,G", "run in gate mode"},
 		{"remote_host", "set remote host (only used in gate mode)", remote_host},
 		{"remote_port", "set remote port (only used in gate mode)", remote_port},
+		{"config", "load a config file (it will disable all options above)", config},
 		{"verbose,v", "enable verbose output (default: disable)"}
 	});
 
@@ -52,67 +169,47 @@ int bootstrap(int argc, char* argv[]) {
 
 	int ret = 0;
 
-	if (res.opts.count("gate") > 0) {
-		std::vector<uint8_t> key(pwd.begin(), pwd.end());
-		std::vector<uint8_t> ivec;
+	if (res.opts.count("config") > 0) {
+		ret = bootstrap_with_config(config, res.opts.count("verbose") > 0);
+	} else if (res.opts.count("gate") > 0) {
 		auto serv = spawn_io(gate_service_impl);
 		scoped_actor self;
+		std::vector<uint8_t> key(pwd.begin(), pwd.end());
+		std::vector<uint8_t> ivec;
 		self->send(serv, add_atom::value, remote_host, remote_port, key, ivec);
+		auto ok_hdl = [] (ok_atom, uint16_t) {
+			std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
+		};
+		auto err_hdl = [&ret] (error_atom, const std::string& what) {
+			std::cout << "ERROR: " << what << std::endl;
+			ret = 1;
+		};
 		if (host.empty()) {
-			scoped_actor self;
-			self->sync_send(serv, publish_atom::value, port).await(
-				[] (ok_atom, uint16_t) {
-					std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
-				},
-				[&ret] (error_atom, const std::string& what) {
-					std::cout << "ERROR: " << what << std::endl;
-					ret = 1;
-				}
-			);
+			self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
 		} else {
-			scoped_actor self;
-			self->sync_send(serv, publish_atom::value, host, port).await(
-				[] (ok_atom, uint16_t) {
-					std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
-				},
-				[&ret] (error_atom, const std::string& what) {
-					std::cout << "ERROR: " << what << std::endl;
-					ret = 1;
-				}
-			);
+			self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
 		}
 
 		if (ret) {
 			anon_send_exit(serv, exit_reason::kill);
 		}
 	} else {
+		auto serv = spawn_io(socks5_service_impl, res.opts.count("verbose") > 0);
+		scoped_actor self;
 		std::vector<uint8_t> key(pwd.begin(), pwd.end());
 		std::vector<uint8_t> ivec;
-		auto serv = spawn_io(socks5_service_impl, res.opts.count("verbose") > 0);
+		self->send(serv, encrypt_atom::value, key, ivec);
+		auto ok_hdl = [] (ok_atom, uint16_t) {
+			std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
+		};
+		auto err_hdl = [&ret] (error_atom, const std::string& what) {
+			std::cout << "ERROR: " << what << std::endl;
+			ret = 1;
+		};
 		if (host.empty()) {
-			scoped_actor self;
-			self->send(serv, encrypt_atom::value, key, ivec);
-			self->sync_send(serv, publish_atom::value, port).await(
-				[] (ok_atom, uint16_t) {
-					std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
-				},
-				[&ret] (error_atom, const std::string& what) {
-					std::cout << "ERROR: " << what << std::endl;
-					ret = 1;
-				}
-			);
+			self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
 		} else {
-			scoped_actor self;
-			self->send(serv, encrypt_atom::value, key, ivec);
-			self->sync_send(serv, publish_atom::value, host, port).await(
-				[] (ok_atom, uint16_t) {
-					std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
-				},
-				[&ret] (error_atom, const std::string& what) {
-					std::cout << "ERROR: " << what << std::endl;
-					ret = 1;
-				}
-			);
+			self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
 		}
 
 		if (ret) {
