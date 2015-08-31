@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <stdlib.h>
 
 namespace ranger { namespace proxy {
 
@@ -53,7 +54,7 @@ public:
 
 private:
 	std::vector<host_info> m_hosts;
-	size_t m_index {0};
+	size_t m_index {static_cast<size_t>(rand())};
 };
 
 gate_service::behavior_type

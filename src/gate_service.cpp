@@ -32,8 +32,8 @@ gate_service_state::host_info gate_service_state::query_host() {
 		return {"", 0};
 	}
 
-	auto host = m_hosts[m_index];
-	m_index = (m_index + 1) % m_hosts.size();
+	auto host = m_hosts[m_index % m_hosts.size()];
+	m_index = rand();
 
 	return host;
 }
