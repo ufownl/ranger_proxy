@@ -18,6 +18,7 @@ Allowed options:
   -G [--gate]        : run in gate mode
   --remote_host arg  : set remote host (only used in gate mode)
   --remote_port arg  : set remote port (only used in gate mode)
+  --config arg       : load a config file (it will disable all options above)
   -v [--verbose]     : enable verbose output (default: disable)
   -h [-?,--help]     : print this text
 ```
