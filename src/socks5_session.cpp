@@ -45,23 +45,24 @@ void socks5_state::init(connection_handle hdl, encryptor enc, bool verbose) {
 }
 
 void socks5_state::handle_new_data(const new_data_msg& msg) {
-	if (m_encryptor && msg.handle == m_local_hdl) {
+	if (!m_current_handler) {
+		aout(m_self) << "ERROR: Current handler is null" << std::endl;
+		m_self->quit();
+	} else if (m_encryptor && msg.handle == m_local_hdl) {
 		if (m_current_handler == &socks5_state::handle_stream_data) {
 			m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
 		} else {
 			scoped_actor self;
 			self->sync_send(m_encryptor, decrypt_atom::value, msg.buf).await(
 				[this] (decrypt_atom, const std::vector<char>& buf) {
-					if (m_current_handler) {
-						new_data_msg msg;
-						msg.handle = m_local_hdl;
-						msg.buf = buf;
-						(this->*m_current_handler)(msg);
-					}
+					new_data_msg msg;
+					msg.handle = m_local_hdl;
+					msg.buf = buf;
+					(this->*m_current_handler)(msg);
 				}
 			);
 		}
-	} else if (m_current_handler) {
+	} else {
 		(this->*m_current_handler)(msg);
 	}
 }
@@ -106,6 +107,10 @@ void socks5_state::write_raw(connection_handle hdl, std::vector<char> buf) const
 		std::copy(buf.begin(), buf.end(), std::back_inserter(wr_buf));
 	}
 	m_self->flush(hdl);
+
+	if (!m_current_handler) {
+		m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
+	}
 }
 
 void socks5_state::handle_select_method_header(const new_data_msg& msg) {
@@ -134,6 +139,7 @@ void socks5_state::handle_select_method_data(const new_data_msg& msg) {
 		m_current_handler = &socks5_state::handle_request_header;
 	} else {
 		aout(m_self) << "ERROR: NO ACCEPTABLE METHODS" << std::endl;
+		m_current_handler = nullptr;
 		write_to_local({0x05, static_cast<char>(0xFF)});
 	}
 }
@@ -151,8 +157,8 @@ void socks5_state::handle_request_header(const new_data_msg& msg) {
 
 	if (static_cast<uint8_t>(msg.buf[1]) != 0x01) {
 		aout(m_self) << "ERROR: Command not supported" << std::endl;
+		m_current_handler = nullptr;
 		write_to_local({0x05, 0x07, 0x00, 0x01});
-		m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
 		return;
 	}
 
@@ -174,8 +180,8 @@ void socks5_state::handle_request_header(const new_data_msg& msg) {
 	}
 
 	aout(m_self) << "ERROR: Address type not supported" << std::endl;
+	m_current_handler = nullptr;
 	write_to_local({0x05, 0x08, 0x00, 0x01});
-	m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
 }
 
 void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
@@ -200,6 +206,8 @@ void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
 	m_conn_succ_handler = [this, addr, port] (connection_handle remote_hdl) {
 		m_self->assign_tcp_scribe(remote_hdl);
 		m_remote_hdl = remote_hdl;
+		m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
+		m_current_handler = &socks5_state::handle_stream_data;
 
 		if (m_verbose) {
 			aout(m_self) << "INFO: " << inet_ntoa(addr) << ":" << port << " connected" << std::endl;
@@ -213,8 +221,6 @@ void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
 					reinterpret_cast<const char*>(&port) + sizeof(port),
 					std::back_inserter(buf));
 		write_to_local(std::move(buf));
-		m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
-		m_current_handler = &socks5_state::handle_stream_data;
 	};
 
 	m_conn_fail_handler = [this, addr, port] (const std::string& what) {
@@ -227,7 +233,6 @@ void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
 					reinterpret_cast<const char*>(&port) + sizeof(port),
 					std::back_inserter(buf));
 		write_to_local(std::move(buf));
-		m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
 	};
 }
 
@@ -257,6 +262,8 @@ void socks5_state::handle_domainname_request_data(const new_data_msg& msg) {
 	m_conn_succ_handler = [this, host, port] (connection_handle remote_hdl) {
 		m_self->assign_tcp_scribe(remote_hdl);
 		m_remote_hdl = remote_hdl;
+		m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
+		m_current_handler = &socks5_state::handle_stream_data;
 
 		if (m_verbose) {
 			aout(m_self) << "INFO: " << host << ":" << port << " connected" << std::endl;
@@ -268,8 +275,6 @@ void socks5_state::handle_domainname_request_data(const new_data_msg& msg) {
 					reinterpret_cast<const char*>(&port) + sizeof(port),
 					std::back_inserter(buf));
 		write_to_local(std::move(buf));
-		m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
-		m_current_handler = &socks5_state::handle_stream_data;
 	};
 
 	m_conn_fail_handler = [this, host, port] (const std::string& what) {
@@ -280,7 +285,6 @@ void socks5_state::handle_domainname_request_data(const new_data_msg& msg) {
 					reinterpret_cast<const char*>(&port) + sizeof(port),
 					std::back_inserter(buf));
 		write_to_local(std::move(buf));
-		m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
 	};
 }
 

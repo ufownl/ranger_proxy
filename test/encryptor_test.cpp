@@ -24,7 +24,7 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_128) {
 	std::vector<uint8_t> key(str.begin(), str.end());
 	std::vector<uint8_t> ivec;
 	auto enc = caf::spawn(ranger::proxy::aes_cfb128_encryptor_impl, key, ivec);
-	scope_guard guard_end([enc] {
+	scope_guard guard_enc([enc] {
 		caf::anon_send_exit(enc, caf::exit_reason::kill);
 	});
 
@@ -60,7 +60,7 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_192) {
 	std::vector<uint8_t> key(str.begin(), str.end());
 	std::vector<uint8_t> ivec;
 	auto enc = caf::spawn(ranger::proxy::aes_cfb128_encryptor_impl, key, ivec);
-	scope_guard guard_end([enc] {
+	scope_guard guard_enc([enc] {
 		caf::anon_send_exit(enc, caf::exit_reason::kill);
 	});
 
@@ -96,7 +96,7 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_256) {
 	std::vector<uint8_t> key(str.begin(), str.end());
 	std::vector<uint8_t> ivec;
 	auto enc = caf::spawn(ranger::proxy::aes_cfb128_encryptor_impl, key, ivec);
-	scope_guard guard_end([enc] {
+	scope_guard guard_enc([enc] {
 		caf::anon_send_exit(enc, caf::exit_reason::kill);
 	});
 
