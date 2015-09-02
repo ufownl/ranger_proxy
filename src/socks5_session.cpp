@@ -67,6 +67,14 @@ void socks5_state::handle_new_data(const new_data_msg& msg) {
 	}
 }
 
+void socks5_state::handle_conn_closed(const connection_closed_msg& msg) {
+	if (msg.handle == m_local_hdl) {
+		m_self->quit();
+	} else {
+		m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
+	}
+}
+
 void socks5_state::handle_encrypted_data(const std::vector<char>& buf) {
 	write_raw(m_local_hdl, buf);
 }
@@ -96,7 +104,9 @@ void socks5_state::write_to_local(std::vector<char> buf) const {
 }
 
 void socks5_state::write_to_remote(std::vector<char> buf) const {
-	write_raw(m_remote_hdl, std::move(buf));
+	if (m_self->valid(m_remote_hdl)) {
+		write_raw(m_remote_hdl, std::move(buf));
+	}
 }
 
 void socks5_state::write_raw(connection_handle hdl, std::vector<char> buf) const {
@@ -312,8 +322,8 @@ socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
 		[self] (const new_data_msg& msg) {
 			self->state.handle_new_data(msg);
 		},
-		[self] (const connection_closed_msg&) {
-			self->quit();
+		[self] (const connection_closed_msg& msg) {
+			self->state.handle_conn_closed(msg);
 		},
 		[self] (ok_atom, connection_handle hdl) {
 			self->state.handle_connect_succ(hdl);

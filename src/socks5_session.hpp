@@ -44,6 +44,7 @@ public:
 	void init(connection_handle hdl, encryptor enc, bool verbose);
 
 	void handle_new_data(const new_data_msg& msg);
+	void handle_conn_closed(const connection_closed_msg& msg);
 	void handle_encrypted_data(const std::vector<char>& buf);
 	void handle_decrypted_data(const std::vector<char>& buf);
 

@@ -27,7 +27,8 @@ using gate_session =
 		reacts_to<ok_atom, connection_handle>,
 		reacts_to<error_atom, std::string>,
 		reacts_to<encrypt_atom, std::vector<char>>,
-		reacts_to<decrypt_atom, std::vector<char>>
+		reacts_to<decrypt_atom, std::vector<char>>,
+		reacts_to<close_atom>
 	>;
 
 class gate_state {
@@ -41,6 +42,7 @@ public:
 	void init(connection_handle hdl, const std::string& host, uint16_t port, encryptor enc);
 
 	void handle_new_data(const new_data_msg& msg);
+	void handle_conn_closed(const connection_closed_msg& msg);
 	void handle_encrypted_data(const std::vector<char>& buf);
 	void handle_decrypted_data(const std::vector<char>& buf);
 
