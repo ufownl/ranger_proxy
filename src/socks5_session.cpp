@@ -218,7 +218,7 @@ void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
 		m_current_handler = &socks5_state::handle_stream_data;
 
 		if (m_verbose) {
-			aout(m_self) << "INFO: " << inet_ntoa(addr) << ":" << port << " connected" << std::endl;
+			aout(m_self) << "INFO: " << inet_ntoa(addr) << ":" << ntohs(port) << " connected" << std::endl;
 		}
 		
 		std::vector<char> buf = {0x05, 0x00, 0x00, 0x01};
@@ -274,7 +274,7 @@ void socks5_state::handle_domainname_request_data(const new_data_msg& msg) {
 		m_current_handler = &socks5_state::handle_stream_data;
 
 		if (m_verbose) {
-			aout(m_self) << "INFO: " << host << ":" << port << " connected" << std::endl;
+			aout(m_self) << "INFO: " << host << ":" << ntohs(port) << " connected" << std::endl;
 		}
 
 		std::vector<char> buf = {0x05, 0x00, 0x00, 0x03, static_cast<char>(host.size())};
