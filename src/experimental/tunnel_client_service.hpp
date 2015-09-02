@@ -17,7 +17,7 @@
 #ifndef RANGER_PROXY_TUNNEL_CLIENT_SERVICE_HPP
 #define RANGER_PROXY_TUNNEL_CLIENT_SERVICE_HPP
 
-namespace ranger { namespace proxy {
+namespace ranger { namespace proxy { namespace experimental {
 
 using tunnel_client_service =
 	minimal_server::extend<
@@ -49,6 +49,6 @@ tunnel_client_service::behavior_type
 tunnel_client_service_impl(	tunnel_client_service::stateful_broker_pointer<tunnel_client_state> self,
 							connection_handle hdl);
 
-} }
+} } }
 
 #endif	// RANGER_PROXY_TUNNEL_CLIENT_SERVICE_HPP

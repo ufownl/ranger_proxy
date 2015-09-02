@@ -15,9 +15,9 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "common.hpp"
-#include "tunnel_client_service.hpp"
+#include "experimental/tunnel_client_service.hpp"
 
-namespace ranger { namespace proxy {
+namespace ranger { namespace proxy { namespace experimental {
 
 tunnel_client_state::tunnel_client_state(tunnel_client_service::broker_pointer self)
 	: m_self(self) {
@@ -112,4 +112,4 @@ tunnel_client_service_impl(tunnel_client_service::stateful_broker_pointer<tunnel
 	};
 }
 
-} }
+} } }

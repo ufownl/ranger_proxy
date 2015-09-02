@@ -27,7 +27,7 @@
 
 TEST_F(echo_test, tunnel_echo) {
 	auto tunnel_server =
-		caf::io::spawn_io(	ranger::proxy::tunnel_server_service_impl,
+		caf::io::spawn_io(	ranger::proxy::experimental::tunnel_server_service_impl,
 							"127.0.0.1", m_port);
 	scope_guard guard_tunnel_server([tunnel_server] {
 		caf::anon_send_exit(tunnel_server, caf::exit_reason::kill);
@@ -48,7 +48,7 @@ TEST_F(echo_test, tunnel_echo) {
 	ASSERT_NE(0, port);
 
 	auto tunnel_client =
-		caf::io::spawn_io_client(	ranger::proxy::tunnel_client_service_impl,
+		caf::io::spawn_io_client(	ranger::proxy::experimental::tunnel_client_service_impl,
 									"127.0.0.1", port);
 	scope_guard guard_tunnel_client([tunnel_client] {
 		caf::anon_send_exit(tunnel_client, caf::exit_reason::kill);
@@ -85,7 +85,7 @@ TEST_F(echo_test, tunnel_echo) {
 
 TEST_F(echo_test, tunnel_echo_chain) {
 	auto tunnel_server =
-		caf::io::spawn_io(	ranger::proxy::tunnel_server_service_impl,
+		caf::io::spawn_io(	ranger::proxy::experimental::tunnel_server_service_impl,
 							"127.0.0.1", m_port);
 	scope_guard guard_tunnel_server([tunnel_server] {
 		caf::anon_send_exit(tunnel_server, caf::exit_reason::kill);
@@ -106,7 +106,7 @@ TEST_F(echo_test, tunnel_echo_chain) {
 	ASSERT_NE(0, port);
 
 	auto tunnel_client =
-		caf::io::spawn_io_client(	ranger::proxy::tunnel_client_service_impl,
+		caf::io::spawn_io_client(	ranger::proxy::experimental::tunnel_client_service_impl,
 									"127.0.0.1", port);
 	scope_guard guard_tunnel_client([tunnel_client] {
 		caf::anon_send_exit(tunnel_client, caf::exit_reason::kill);
@@ -125,7 +125,7 @@ TEST_F(echo_test, tunnel_echo_chain) {
 	ASSERT_NE(0, port);
 
 	auto tunnel_server2 =
-		caf::io::spawn_io(	ranger::proxy::tunnel_server_service_impl,
+		caf::io::spawn_io(	ranger::proxy::experimental::tunnel_server_service_impl,
 							"127.0.0.1", port);
 	scope_guard guard_tunnel_server2([tunnel_server2] {
 		caf::anon_send_exit(tunnel_server2, caf::exit_reason::kill);
@@ -144,7 +144,7 @@ TEST_F(echo_test, tunnel_echo_chain) {
 	ASSERT_NE(0, port);
 
 	auto tunnel_client2 =
-		caf::io::spawn_io_client(	ranger::proxy::tunnel_client_service_impl,
+		caf::io::spawn_io_client(	ranger::proxy::experimental::tunnel_client_service_impl,
 									"127.0.0.1", port);
 	scope_guard guard_tunnel_client2([tunnel_client2] {
 		caf::anon_send_exit(tunnel_client2, caf::exit_reason::kill);

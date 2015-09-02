@@ -19,7 +19,7 @@
 
 #include <map>
 
-namespace ranger { namespace proxy {
+namespace ranger { namespace proxy { namespace experimental {
 
 using tunnel_server_session = minimal_client;
 
@@ -49,6 +49,6 @@ tunnel_server_session::behavior_type
 tunnel_server_session_impl(	tunnel_server_session::stateful_broker_pointer<tunnel_server_state> self,
 							connection_handle hdl, const std::string& host, uint16_t port);
 
-} }
+} } }
 
 #endif	// RANGER_PROXY_TUNNEL_SERVER_SESSION_HPP

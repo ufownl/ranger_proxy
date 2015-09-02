@@ -15,10 +15,10 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "common.hpp"
-#include "tunnel_server_service.hpp"
-#include "tunnel_server_session.hpp"
+#include "experimental/tunnel_server_service.hpp"
+#include "experimental/tunnel_server_session.hpp"
 
-namespace ranger { namespace proxy {
+namespace ranger { namespace proxy { namespace experimental {
 
 tunnel_server_service::behavior_type
 tunnel_server_service_impl( tunnel_server_service::broker_pointer self,
@@ -56,4 +56,4 @@ tunnel_server_service_impl( tunnel_server_service::broker_pointer self,
 	};
 }
 
-} }
+} } }

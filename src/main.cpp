@@ -17,8 +17,8 @@
 #include "common.hpp"
 #include "socks5_service.hpp"
 #include "gate_service.hpp"
-#include "tunnel_server_service.hpp"
-#include "tunnel_client_service.hpp"
+#include "experimental/tunnel_server_service.hpp"
+#include "experimental/tunnel_client_service.hpp"
 #include <rapidxml.hpp>
 #include <rapidxml_utils.hpp>
 #include <algorithm>
@@ -29,6 +29,7 @@
 
 using namespace ranger;
 using namespace ranger::proxy;
+using namespace ranger::proxy::experimental;
 
 int bootstrap_with_config(const std::string& config, bool tunnel, bool verbose) {
 	int final_ret = 0;
@@ -70,11 +71,11 @@ int bootstrap_with_config(const std::string& config, bool tunnel, bool verbose) 
 
 					if (tunnel) {
 						auto tun = spawn_io_client(tunnel_client_service_impl, remote_addr, remote_port);
-						self->sync_send(tun, caf::publish_atom::value).await(
-							[&remote_port] (caf::ok_atom, uint16_t tun_port) {
+						self->sync_send(tun, publish_atom::value).await(
+							[&remote_port] (ok_atom, uint16_t tun_port) {
 								remote_port = tun_port;
 							},
-							[] (caf::error_atom, const std::string& what) {
+							[] (error_atom, const std::string& what) {
 								std::cout << "ERROR: " << what << std::endl;
 							}
 						);
@@ -141,7 +142,7 @@ int bootstrap_with_config(const std::string& config, bool tunnel, bool verbose) 
 					);
 
 					auto tun =
-						caf::io::spawn_io(ranger::proxy::tunnel_server_service_impl, "127.0.0.1", internal_port);
+						spawn_io(tunnel_server_service_impl, "127.0.0.1", internal_port);
 					if (host.empty()) {
 						self->sync_send(tun, publish_atom::value, port).await(ok_hdl, err_hdl);
 					} else {
@@ -187,7 +188,7 @@ int bootstrap(int argc, char* argv[]) {
 		{"remote_host", "set remote host (only used in gate mode)", remote_host},
 		{"remote_port", "set remote port (only used in gate mode)", remote_port},
 		{"config", "load a config file (it will disable all options above)", config},
-		{"tunnel", "enable tunnel connection (default: disable)"},
+		{"tunnel", "enable tunnel connection (not recommend) (default: disable)"},
 		{"verbose,v", "enable verbose output (default: disable)"}
 	});
 
@@ -262,7 +263,7 @@ int bootstrap(int argc, char* argv[]) {
 			);
 
 			auto tun =
-				caf::io::spawn_io(ranger::proxy::tunnel_server_service_impl, "127.0.0.1", internal_port);
+				spawn_io(tunnel_server_service_impl, "127.0.0.1", internal_port);
 			if (host.empty()) {
 				self->sync_send(tun, publish_atom::value, port).await(ok_hdl, err_hdl);
 			} else {
