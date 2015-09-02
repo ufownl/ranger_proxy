@@ -17,6 +17,8 @@
 #include "common.hpp"
 #include "socks5_service.hpp"
 #include "gate_service.hpp"
+#include "tunnel_server_service.hpp"
+#include "tunnel_client_service.hpp"
 #include <rapidxml.hpp>
 #include <rapidxml_utils.hpp>
 #include <algorithm>
@@ -28,7 +30,7 @@
 using namespace ranger;
 using namespace ranger::proxy;
 
-int bootstrap_with_config(const std::string& config, bool verbose) {
+int bootstrap_with_config(const std::string& config, bool tunnel, bool verbose) {
 	int final_ret = 0;
 	try {
 		rapidxml::file<> fin(config.c_str());
@@ -64,6 +66,19 @@ int bootstrap_with_config(const std::string& config, bool verbose) {
 					node = j->first_node("port");
 					if (node) {
 						remote_port = atoi(node->value());
+					}
+
+					if (tunnel) {
+						auto tun = spawn_io_client(tunnel_client_service_impl, remote_addr, remote_port);
+						self->sync_send(tun, caf::publish_atom::value).await(
+							[&remote_port] (caf::ok_atom, uint16_t tun_port) {
+								remote_port = tun_port;
+							},
+							[] (caf::error_atom, const std::string& what) {
+								std::cout << "ERROR: " << what << std::endl;
+							}
+						);
+						remote_addr = "127.0.0.1";
 					}
 
 					std::vector<uint8_t> key;
@@ -116,10 +131,28 @@ int bootstrap_with_config(const std::string& config, bool verbose) {
 					std::cout << "ERROR: " << what << std::endl;
 					ret = 1;
 				};
-				if (host.empty()) {
-					self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
+				if (tunnel) {
+					uint16_t internal_port = 0;
+					self->sync_send(serv, publish_atom::value, "127.0.0.1", internal_port).await(
+						[&internal_port] (ok_atom, uint16_t serv_port) {
+							internal_port = serv_port;
+						},
+						err_hdl
+					);
+
+					auto tun =
+						caf::io::spawn_io(ranger::proxy::tunnel_server_service_impl, "127.0.0.1", internal_port);
+					if (host.empty()) {
+						self->sync_send(tun, publish_atom::value, port).await(ok_hdl, err_hdl);
+					} else {
+						self->sync_send(tun, publish_atom::value, host, port).await(ok_hdl, err_hdl);
+					}
 				} else {
-					self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
+					if (host.empty()) {
+						self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
+					} else {
+						self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
+					}
 				}
 
 				if (ret) {
@@ -154,6 +187,7 @@ int bootstrap(int argc, char* argv[]) {
 		{"remote_host", "set remote host (only used in gate mode)", remote_host},
 		{"remote_port", "set remote port (only used in gate mode)", remote_port},
 		{"config", "load a config file (it will disable all options above)", config},
+		{"tunnel", "enable tunnel connection (default: disable)"},
 		{"verbose,v", "enable verbose output (default: disable)"}
 	});
 
@@ -170,10 +204,22 @@ int bootstrap(int argc, char* argv[]) {
 	int ret = 0;
 
 	if (res.opts.count("config") > 0) {
-		ret = bootstrap_with_config(config, res.opts.count("verbose") > 0);
+		ret = bootstrap_with_config(config, res.opts.count("tunnel") > 0, res.opts.count("verbose") > 0);
 	} else if (res.opts.count("gate") > 0) {
-		auto serv = spawn_io(gate_service_impl);
 		scoped_actor self;
+		if (res.opts.count("tunnel")) {
+			auto tun = spawn_io_client(tunnel_client_service_impl, remote_host, remote_port);
+			self->sync_send(tun, caf::publish_atom::value).await(
+				[&remote_port] (caf::ok_atom, uint16_t tun_port) {
+					remote_port = tun_port;
+				},
+				[] (caf::error_atom, const std::string& what) {
+					std::cout << "ERROR: " << what << std::endl;
+				}
+			);
+			remote_host = "127.0.0.1";
+		}
+		auto serv = spawn_io(gate_service_impl);
 		std::vector<uint8_t> key(pwd.begin(), pwd.end());
 		std::vector<uint8_t> ivec;
 		self->send(serv, add_atom::value, remote_host, remote_port, key, ivec);
@@ -206,10 +252,28 @@ int bootstrap(int argc, char* argv[]) {
 			std::cout << "ERROR: " << what << std::endl;
 			ret = 1;
 		};
-		if (host.empty()) {
-			self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
+		if (res.opts.count("tunnel")) {
+			uint16_t internal_port = 0;
+			self->sync_send(serv, publish_atom::value, "127.0.0.1", internal_port).await(
+				[&internal_port] (ok_atom, uint16_t serv_port) {
+					internal_port = serv_port;
+				},
+				err_hdl
+			);
+
+			auto tun =
+				caf::io::spawn_io(ranger::proxy::tunnel_server_service_impl, "127.0.0.1", internal_port);
+			if (host.empty()) {
+				self->sync_send(tun, publish_atom::value, port).await(ok_hdl, err_hdl);
+			} else {
+				self->sync_send(tun, publish_atom::value, host, port).await(ok_hdl, err_hdl);
+			}
 		} else {
-			self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
+			if (host.empty()) {
+				self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
+			} else {
+				self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
+			}
 		}
 
 		if (ret) {
