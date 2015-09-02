@@ -121,10 +121,18 @@ void socks5_state::handle_select_method_header(const new_data_msg& msg) {
 	}
 
 	uint8_t nmethods = msg.buf[1];
+	if (nmethods == 0) {
+		aout(m_self) << "ERROR: NO ACCEPTABLE METHODS" << std::endl;
+		m_current_handler = nullptr;
+		write_to_local({0x05, static_cast<char>(0xFF)});
+		return;
+	}
+
 	if (m_verbose) {
 		aout(m_self) << "INFO: recv select method header"
 			<< " (nmethods == " << nmethods << ")" << std::endl;
 	}
+
 	m_self->configure_read(m_local_hdl, receive_policy::exactly(nmethods));
 	m_current_handler = &socks5_state::handle_select_method_data;
 }
