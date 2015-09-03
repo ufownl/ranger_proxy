@@ -19,7 +19,6 @@ Allowed options:
   --remote_host arg  : set remote host (only used in gate mode)
   --remote_port arg  : set remote port (only used in gate mode)
   --config arg       : load a config file (it will disable all options above)
-  --tunnel           : enable tunnel connection (not recommend) (default: disable)
   -v [--verbose]     : enable verbose output (default: disable)
   -h [-?,--help]     : print this text
 ```
