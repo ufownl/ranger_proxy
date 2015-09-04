@@ -68,7 +68,7 @@ int bootstrap_with_config(const std::string& config, bool verbose) {
 					}
 
 					std::vector<uint8_t> key;
-					node = j->first_node("password");
+					node = j->first_node("key");
 					if (node) {
 						std::copy(	node->value(),
 									node->value() + strlen(node->value()),
@@ -100,7 +100,7 @@ int bootstrap_with_config(const std::string& config, bool verbose) {
 				auto serv = spawn_io(socks5_service_impl, verbose);
 				scoped_actor self;
 				std::vector<uint8_t> key;
-				node = i->first_node("password");
+				node = i->first_node("key");
 				if (node) {
 					std::copy(	node->value(),
 								node->value() + strlen(node->value()),
@@ -150,7 +150,7 @@ int bootstrap(int argc, char* argv[]) {
 	auto res = message_builder(argv + 1, argv + argc).extract_opts({
 		{"host,H", "set host", host},
 		{"port,p", "set port (default: 1080)", port},
-		{"password", "set password (default: empty)", pwd},
+		{"key,k", "set key (default: empty)", pwd},
 		{"gate,G", "run in gate mode"},
 		{"remote_host", "set remote host (only used in gate mode)", remote_host},
 		{"remote_port", "set remote port (only used in gate mode)", remote_port},
