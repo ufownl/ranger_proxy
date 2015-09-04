@@ -41,7 +41,7 @@ void socks5_state::init(connection_handle hdl, encryptor enc, bool verbose) {
 	m_self->configure_read(m_local_hdl, receive_policy::exactly(2));
 	m_encryptor = enc;
 	m_verbose = verbose;
-	m_current_handler = &socks5_state::handle_select_method_header;
+	m_current_handler = std::bind(&socks5_state::handle_select_method, this, std::placeholders::_1);
 }
 
 void socks5_state::handle_new_data(const new_data_msg& msg) {
@@ -49,21 +49,21 @@ void socks5_state::handle_new_data(const new_data_msg& msg) {
 		aout(m_self) << "ERROR: Current handler is null" << std::endl;
 		m_self->quit();
 	} else if (m_encryptor && msg.handle == m_local_hdl) {
-		if (m_current_handler == &socks5_state::handle_stream_data) {
-			m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
-		} else {
+		if (m_remote_hdl.invalid()) {
 			scoped_actor self;
 			self->sync_send(m_encryptor, decrypt_atom::value, msg.buf).await(
 				[this] (decrypt_atom, const std::vector<char>& buf) {
 					new_data_msg msg;
 					msg.handle = m_local_hdl;
 					msg.buf = buf;
-					(this->*m_current_handler)(msg);
+					m_current_handler(msg);
 				}
 			);
+		} else {
+			m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
 		}
 	} else {
-		(this->*m_current_handler)(msg);
+		m_current_handler(msg);
 	}
 }
 
@@ -123,7 +123,7 @@ void socks5_state::write_raw(connection_handle hdl, std::vector<char> buf) const
 	}
 }
 
-void socks5_state::handle_select_method_header(const new_data_msg& msg) {
+void socks5_state::handle_select_method(const new_data_msg& msg) {
 	if (static_cast<uint8_t>(msg.buf[0]) != 0x05) {
 		aout(m_self) << "ERROR: Protocol version mismatch" << std::endl;
 		m_self->quit();
@@ -144,22 +144,20 @@ void socks5_state::handle_select_method_header(const new_data_msg& msg) {
 	}
 
 	m_self->configure_read(m_local_hdl, receive_policy::exactly(nmethods));
-	m_current_handler = &socks5_state::handle_select_method_data;
-}
-
-void socks5_state::handle_select_method_data(const new_data_msg& msg) {
-	if (m_verbose) {
-		aout(m_self) << "INFO: recv select method data" << std::endl;
-	}
-	if (std::find(msg.buf.begin(), msg.buf.end(), 0) != msg.buf.end()) {
-		write_to_local({0x05, 0x00});
-		m_self->configure_read(m_local_hdl, receive_policy::exactly(4));
-		m_current_handler = &socks5_state::handle_request_header;
-	} else {
-		aout(m_self) << "ERROR: NO ACCEPTABLE METHODS" << std::endl;
-		m_current_handler = nullptr;
-		write_to_local({0x05, static_cast<char>(0xFF)});
-	}
+	m_current_handler = [this] (const new_data_msg& msg) {
+		if (m_verbose) {
+			aout(m_self) << "INFO: recv select method data" << std::endl;
+		}
+		if (std::find(msg.buf.begin(), msg.buf.end(), 0) != msg.buf.end()) {
+			write_to_local({0x05, 0x00});
+			m_self->configure_read(m_local_hdl, receive_policy::exactly(4));
+			m_current_handler = std::bind(&socks5_state::handle_request_header, this, std::placeholders::_1);
+		} else {
+			aout(m_self) << "ERROR: NO ACCEPTABLE METHODS" << std::endl;
+			m_current_handler = nullptr;
+			write_to_local({0x05, static_cast<char>(0xFF)});
+		}
+	};
 }
 
 void socks5_state::handle_request_header(const new_data_msg& msg) {
@@ -186,14 +184,14 @@ void socks5_state::handle_request_header(const new_data_msg& msg) {
 			aout(m_self) << "INFO: CMD[connect] ADDR[ipv4]" << std::endl;
 		}
 		m_self->configure_read(m_local_hdl, receive_policy::exactly(6));
-		m_current_handler = &socks5_state::handle_ipv4_request_data;
+		m_current_handler = std::bind(&socks5_state::handle_ipv4_request, this, std::placeholders::_1);
 		return;
 	case 0x03:	// DOMAINNAME
 		if (m_verbose) {
 			aout(m_self) << "INFO: CMD[connect] ADDR[domainname]" << std::endl;
 		}
 		m_self->configure_read(m_local_hdl, receive_policy::exactly(1));
-		m_current_handler = &socks5_state::handle_domainname_length;
+		m_current_handler = std::bind(&socks5_state::handle_domainname_request, this, std::placeholders::_1);
 		return;
 	}
 
@@ -202,7 +200,7 @@ void socks5_state::handle_request_header(const new_data_msg& msg) {
 	write_to_local({0x05, 0x08, 0x00, 0x01});
 }
 
-void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
+void socks5_state::handle_ipv4_request(const new_data_msg& msg) {
 	in_addr addr;
 	memcpy(&addr, &msg.buf[0], sizeof(addr));
 	uint16_t port;
@@ -225,7 +223,7 @@ void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
 		m_self->assign_tcp_scribe(remote_hdl);
 		m_remote_hdl = remote_hdl;
 		m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
-		m_current_handler = &socks5_state::handle_stream_data;
+		m_current_handler = std::bind(&socks5_state::handle_stream_data, this, std::placeholders::_1);
 
 		if (m_verbose) {
 			aout(m_self) << "INFO: " << inet_ntoa(addr) << ":" << ntohs(port) << " connected" << std::endl;
@@ -254,55 +252,53 @@ void socks5_state::handle_ipv4_request_data(const new_data_msg& msg) {
 	};
 }
 
-void socks5_state::handle_domainname_length(const new_data_msg& msg) {
+void socks5_state::handle_domainname_request(const new_data_msg& msg) {
 	m_self->configure_read(m_local_hdl, receive_policy::exactly(static_cast<uint8_t>(msg.buf[0]) + 2));
-	m_current_handler = &socks5_state::handle_domainname_request_data;
-}
-
-void socks5_state::handle_domainname_request_data(const new_data_msg& msg) {
-	std::string host(msg.buf.begin(), msg.buf.begin() + msg.buf.size() - 2);
-	uint16_t port;
-	memcpy(&port, &msg.buf[msg.buf.size() - 2], sizeof(port));
-	port = ntohs(port);
-
-	if (m_verbose) {
-		aout(m_self) << "INFO: connect to " << host << ":" << port << std::endl;
-	}
-
-	auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
-	m_self->send(helper, connect_atom::value, host, port);
-
-	m_self->configure_read(m_local_hdl, receive_policy::at_most(8192));
-	m_current_handler = nullptr;
-
-	port = htons(port);
-
-	m_conn_succ_handler = [this, host, port] (connection_handle remote_hdl) {
-		m_self->assign_tcp_scribe(remote_hdl);
-		m_remote_hdl = remote_hdl;
-		m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
-		m_current_handler = &socks5_state::handle_stream_data;
+	m_current_handler = [this] (const new_data_msg& msg) {
+		std::string host(msg.buf.begin(), msg.buf.begin() + msg.buf.size() - 2);
+		uint16_t port;
+		memcpy(&port, &msg.buf[msg.buf.size() - 2], sizeof(port));
+		port = ntohs(port);
 
 		if (m_verbose) {
-			aout(m_self) << "INFO: " << host << ":" << ntohs(port) << " connected" << std::endl;
+			aout(m_self) << "INFO: connect to " << host << ":" << port << std::endl;
 		}
 
-		std::vector<char> buf = {0x05, 0x00, 0x00, 0x03, static_cast<char>(host.size())};
-		std::copy(host.begin(), host.end(), std::back_inserter(buf));
-		std::copy(	reinterpret_cast<const char*>(&port),
-					reinterpret_cast<const char*>(&port) + sizeof(port),
-					std::back_inserter(buf));
-		write_to_local(std::move(buf));
-	};
+		auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
+		m_self->send(helper, connect_atom::value, host, port);
 
-	m_conn_fail_handler = [this, host, port] (const std::string& what) {
-		aout(m_self) << "ERROR: " << what << std::endl;
-		std::vector<char> buf = {0x05, 0x05, 0x00, 0x03, static_cast<char>(host.size())};
-		std::copy(host.begin(), host.end(), std::back_inserter(buf));
-		std::copy(	reinterpret_cast<const char*>(&port),
-					reinterpret_cast<const char*>(&port) + sizeof(port),
-					std::back_inserter(buf));
-		write_to_local(std::move(buf));
+		m_self->configure_read(m_local_hdl, receive_policy::at_most(8192));
+		m_current_handler = nullptr;
+
+		port = htons(port);
+
+		m_conn_succ_handler = [this, host, port] (connection_handle remote_hdl) {
+			m_self->assign_tcp_scribe(remote_hdl);
+			m_remote_hdl = remote_hdl;
+			m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
+			m_current_handler = std::bind(&socks5_state::handle_stream_data, this, std::placeholders::_1);
+
+			if (m_verbose) {
+				aout(m_self) << "INFO: " << host << ":" << ntohs(port) << " connected" << std::endl;
+			}
+
+			std::vector<char> buf = {0x05, 0x00, 0x00, 0x03, static_cast<char>(host.size())};
+			std::copy(host.begin(), host.end(), std::back_inserter(buf));
+			std::copy(	reinterpret_cast<const char*>(&port),
+						reinterpret_cast<const char*>(&port) + sizeof(port),
+						std::back_inserter(buf));
+			write_to_local(std::move(buf));
+		};
+
+		m_conn_fail_handler = [this, host, port] (const std::string& what) {
+			aout(m_self) << "ERROR: " << what << std::endl;
+			std::vector<char> buf = {0x05, 0x05, 0x00, 0x03, static_cast<char>(host.size())};
+			std::copy(host.begin(), host.end(), std::back_inserter(buf));
+			std::copy(	reinterpret_cast<const char*>(&port),
+						reinterpret_cast<const char*>(&port) + sizeof(port),
+						std::back_inserter(buf));
+			write_to_local(std::move(buf));
+		};
 	};
 }
 

@@ -52,18 +52,14 @@ public:
 	void handle_connect_fail(const std::string& what);
 
 private:
-	using new_data_handler = void (socks5_state::*)(const new_data_msg&);
-
 	void write_to_local(std::vector<char> buf) const;
 	void write_to_remote(std::vector<char> buf) const;
 	void write_raw(connection_handle hdl, std::vector<char> buf) const;
 
-	void handle_select_method_header(const new_data_msg& msg);
-	void handle_select_method_data(const new_data_msg& msg);
+	void handle_select_method(const new_data_msg& msg);
 	void handle_request_header(const new_data_msg& msg);
-	void handle_ipv4_request_data(const new_data_msg& msg);
-	void handle_domainname_length(const new_data_msg& msg);
-	void handle_domainname_request_data(const new_data_msg& msg);
+	void handle_ipv4_request(const new_data_msg& msg);
+	void handle_domainname_request(const new_data_msg& msg);
 	void handle_stream_data(const new_data_msg& msg);
 
 	const socks5_session::broker_pointer m_self;
@@ -71,7 +67,7 @@ private:
 	connection_handle m_remote_hdl;
 	encryptor m_encryptor;
 	bool m_verbose {false};
-	new_data_handler m_current_handler {nullptr};
+	std::function<void(const new_data_msg&)> m_current_handler;
 	std::function<void(connection_handle)> m_conn_succ_handler;
 	std::function<void(const std::string&)> m_conn_fail_handler;
 };
