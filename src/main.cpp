@@ -99,6 +99,28 @@ int bootstrap_with_config(const std::string& config, bool verbose) {
 			} else {
 				auto serv = spawn_io(socks5_service_impl, verbose);
 				scoped_actor self;
+				for (auto j = i->first_node("user"); j; j = j->next_sibling("user")) {
+					node = j->first_node("username");
+					if (node) {
+						std::string username = node->value();
+						std::string password;
+						node = j->first_node("password");
+						if (node) {
+							password = node->value();
+						}
+
+						self->sync_send(serv, add_atom::value, username, password).await(
+							[] (bool result, const std::string& username) {
+								if (result) {
+									std::cout << "INFO: Add user[" << username << "] successfully" << std::endl;
+								} else {
+									std::cout << "ERROR: Fail in adding user[" << username << "]" << std::endl;
+								}
+							}
+						);
+					}
+				}
+
 				std::vector<uint8_t> key;
 				node = i->first_node("key");
 				if (node) {
@@ -142,7 +164,9 @@ int bootstrap_with_config(const std::string& config, bool verbose) {
 int bootstrap(int argc, char* argv[]) {
 	std::string host;
 	uint16_t port = 1080;
-	std::string pwd;
+	std::string username;
+	std::string password;
+	std::string key_src;
 	std::string remote_host;
 	uint16_t remote_port = 0;
 	std::string config;
@@ -150,7 +174,9 @@ int bootstrap(int argc, char* argv[]) {
 	auto res = message_builder(argv + 1, argv + argc).extract_opts({
 		{"host,H", "set host", host},
 		{"port,p", "set port (default: 1080)", port},
-		{"key,k", "set key (default: empty)", pwd},
+		{"username", "set username (it will enable username auth method)", username},
+		{"password", "set password", password},
+		{"key,k", "set key (default: empty)", key_src},
 		{"gate,G", "run in gate mode"},
 		{"remote_host", "set remote host (only used in gate mode)", remote_host},
 		{"remote_port", "set remote port (only used in gate mode)", remote_port},
@@ -175,7 +201,7 @@ int bootstrap(int argc, char* argv[]) {
 	} else if (res.opts.count("gate") > 0) {
 		scoped_actor self;
 		auto serv = spawn_io(gate_service_impl);
-		std::vector<uint8_t> key(pwd.begin(), pwd.end());
+		std::vector<uint8_t> key(key_src.begin(), key_src.end());
 		std::vector<uint8_t> ivec;
 		self->send(serv, add_atom::value, remote_host, remote_port, key, ivec);
 		auto ok_hdl = [] (ok_atom, uint16_t) {
@@ -197,7 +223,18 @@ int bootstrap(int argc, char* argv[]) {
 	} else {
 		auto serv = spawn_io(socks5_service_impl, res.opts.count("verbose") > 0);
 		scoped_actor self;
-		std::vector<uint8_t> key(pwd.begin(), pwd.end());
+		if (!username.empty()) {
+			self->sync_send(serv, add_atom::value, username, password).await(
+				[] (bool result, const std::string& username) {
+					if (result) {
+						std::cout << "INFO: Add user[" << username << "] successfully" << std::endl;
+					} else {
+						std::cout << "ERROR: Fail in adding user[" << username << "]" << std::endl;
+					}
+				}
+			);
+		}
+		std::vector<uint8_t> key(key_src.begin(), key_src.end());
 		std::vector<uint8_t> ivec;
 		self->send(serv, encrypt_atom::value, key, ivec);
 		auto ok_hdl = [] (ok_atom, uint16_t) {
