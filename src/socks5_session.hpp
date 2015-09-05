@@ -70,6 +70,7 @@ private:
 	user_table m_user_tbl;
 	encryptor m_encryptor;
 	bool m_verbose {false};
+	bool m_valid_handler {false};
 	std::function<void(const new_data_msg&)> m_current_handler;
 	std::function<void(connection_handle)> m_conn_succ_handler;
 	std::function<void(const std::string&)> m_conn_fail_handler;
