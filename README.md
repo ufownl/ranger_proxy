@@ -14,7 +14,9 @@ ranger_proxy --help
 Allowed options:
   -H [--host] arg    : set host
   -p [--port] arg    : set port (default: 1080)
-  --password arg     : set password (default: empty)
+  --username arg     : set username (it will enable username auth method)
+  --password arg     : set password
+  -k [--key] arg     : set key (default: empty)
   -G [--gate]        : run in gate mode
   --remote_host arg  : set remote host (only used in gate mode)
   --remote_port arg  : set remote port (only used in gate mode)
@@ -48,7 +50,7 @@ make install
 ### 验证方法
 - [x] NO AUTHENTICATION REQUIRED
 - [ ] GSSAPI
-- [ ] USERNAME/PASSWORD
+- [x] USERNAME/PASSWORD
 
 ### 请求类型
 - [x] CONNECT
