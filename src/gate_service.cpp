@@ -32,10 +32,15 @@ gate_service_state::host_info gate_service_state::query_host() {
 		return {"", 0};
 	}
 
-	auto host = m_hosts[m_index % m_hosts.size()];
-	m_index = rand();
+	if (!m_dist) {
+		std::random_device rd;
+		m_rand_engine.reset(new std::mt19937(rd()));
+		m_dist.reset(new std::uniform_int_distribution<size_t>(0, m_hosts.size() - 1));
+	} else if (m_dist->max() != m_hosts.size() - 1) {
+		m_dist.reset(new std::uniform_int_distribution<size_t>(0, m_hosts.size() - 1));
+	}
 
-	return host;
+	return m_hosts[(*m_dist)(*m_rand_engine)];
 }
 
 gate_service::behavior_type

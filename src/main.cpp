@@ -22,8 +22,6 @@
 #include <algorithm>
 #include <iterator>
 #include <string.h>
-#include <stdlib.h>
-#include <time.h>
 
 using namespace ranger;
 using namespace ranger::proxy;
@@ -259,7 +257,6 @@ int bootstrap(int argc, char* argv[]) {
 }
 
 int main(int argc, char* argv[]) {
-	srand(time(nullptr));
 	int ret = bootstrap(argc, argv);
 	await_all_actors_done();
 	shutdown();
