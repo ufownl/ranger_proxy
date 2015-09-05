@@ -19,6 +19,7 @@
 
 #include <string>
 #include <vector>
+#include "user_table.hpp"
 #include "encryptor.hpp"
 
 namespace ranger { namespace proxy {
@@ -31,6 +32,7 @@ using socks5_service =
 		replies_to<publish_atom, std::string, uint16_t>
 			::with_either<ok_atom, uint16_t>
 			::or_else<error_atom, std::string>,
+		replies_to<add_atom, std::string, std::string>::with<bool, std::string>,
 		reacts_to<encrypt_atom, std::vector<uint8_t>, std::vector<uint8_t>>
 	>;
 
@@ -41,12 +43,16 @@ public:
 	socks5_service_state(const socks5_service_state&) = delete;
 	socks5_service_state& operator = (const socks5_service_state&) = delete;
 
+	void set_user_table(const user_table& tbl);
+	const user_table& get_user_table() const;
+
 	void set_key(const std::vector<uint8_t>& key);
 	void set_ivec(const std::vector<uint8_t>& ivec);
 
 	encryptor spawn_encryptor() const;
 
 private:
+	user_table m_user_tbl;
 	std::vector<uint8_t> m_key;
 	std::vector<uint8_t> m_ivec;
 };

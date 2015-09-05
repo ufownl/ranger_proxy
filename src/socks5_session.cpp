@@ -36,9 +36,10 @@ socks5_state::~socks5_state() {
 	}
 }
 
-void socks5_state::init(connection_handle hdl, encryptor enc, bool verbose) {
+void socks5_state::init(connection_handle hdl, user_table tbl, encryptor enc, bool verbose) {
 	m_local_hdl = hdl;
 	m_self->configure_read(m_local_hdl, receive_policy::exactly(2));
+	m_user_tbl = tbl;
 	m_encryptor = enc;
 	m_verbose = verbose;
 	m_current_handler = std::bind(&socks5_state::handle_select_method, this, std::placeholders::_1);
@@ -75,14 +76,6 @@ void socks5_state::handle_conn_closed(const connection_closed_msg& msg) {
 	}
 }
 
-void socks5_state::handle_encrypted_data(const std::vector<char>& buf) {
-	write_raw(m_local_hdl, buf);
-}
-
-void socks5_state::handle_decrypted_data(const std::vector<char>& buf) {
-	write_to_remote(buf);
-}
-
 void socks5_state::handle_connect_succ(connection_handle hdl) {
 	if (m_conn_succ_handler) {
 		m_conn_succ_handler(hdl);
@@ -93,6 +86,14 @@ void socks5_state::handle_connect_fail(const std::string& what) {
 	if (m_conn_fail_handler) {
 		m_conn_fail_handler(what);
 	}
+}
+
+void socks5_state::handle_encrypted_data(const std::vector<char>& buf) {
+	write_raw(m_local_hdl, buf);
+}
+
+void socks5_state::handle_decrypted_data(const std::vector<char>& buf) {
+	write_to_remote(buf);
 }
 
 void socks5_state::write_to_local(std::vector<char> buf) const {
@@ -147,17 +148,103 @@ void socks5_state::handle_select_method(const new_data_msg& msg) {
 	m_current_handler = [this] (const new_data_msg& msg) {
 		if (m_verbose) {
 			aout(m_self) << "INFO: recv select method data" << std::endl;
+			for (auto i = 0; i < msg.buf.size(); ++i) {
+				aout(m_self) << "INFO: method[" << i << "] = "
+					<< static_cast<unsigned int>(msg.buf[i]) << std::endl;
+			}
 		}
-		if (std::find(msg.buf.begin(), msg.buf.end(), 0) != msg.buf.end()) {
-			write_to_local({0x05, 0x00});
-			m_self->configure_read(m_local_hdl, receive_policy::exactly(4));
-			m_current_handler = std::bind(&socks5_state::handle_request_header, this, std::placeholders::_1);
+
+		uint8_t method = 0x00;
+		if (m_user_tbl) {
+			method = 0x02;
+		}
+
+		if (std::find(msg.buf.begin(), msg.buf.end(), method) != msg.buf.end()) {
+			write_to_local({0x05, static_cast<char>(method)});
+			if (method == 0x00) {
+				if (m_verbose) {
+					aout(m_self) << "INFO: Select method [NO AUTHENTICATION REQUIRED]" << std::endl;
+				}
+				m_self->configure_read(m_local_hdl, receive_policy::exactly(4));
+				m_current_handler = std::bind(&socks5_state::handle_request_header, this, std::placeholders::_1);
+			} else {
+				if (m_verbose) {
+					aout(m_self) << "INFO: Select method [USERNAME/PASSWORD]" << std::endl;
+				}
+				m_self->configure_read(m_local_hdl, receive_policy::exactly(2));
+				m_current_handler = std::bind(&socks5_state::handle_username_auth, this, std::placeholders::_1);
+			}
 		} else {
 			aout(m_self) << "ERROR: NO ACCEPTABLE METHODS" << std::endl;
 			m_current_handler = nullptr;
 			write_to_local({0x05, static_cast<char>(0xFF)});
 		}
 	};
+}
+
+void socks5_state::handle_username_auth(const new_data_msg& msg) {
+	if (static_cast<uint8_t>(msg.buf[0]) != 0x01) {
+		aout(m_self) << "ERROR: Protocol version mismatch" << std::endl;
+		m_self->quit();
+		return;
+	}
+
+	uint8_t len = msg.buf[1];
+	if (len == 0) {
+		aout(m_self) << "ERROR: Username is empty" << std::endl;
+		m_current_handler = nullptr;
+		write_to_local({0x01, static_cast<char>(0xFF)});
+		return;
+	}
+
+	m_self->configure_read(m_local_hdl, receive_policy::exactly(len + 1));
+	m_current_handler = [this] (const new_data_msg& msg) {
+		uint8_t len = msg.buf.back();
+		std::string username(msg.buf.begin(), msg.buf.begin() + msg.buf.size() - 1);
+		if (len > 0) {
+			m_self->configure_read(m_local_hdl, receive_policy::exactly(len));
+			m_current_handler = [this, username] (const new_data_msg& msg) {
+				std::string password(msg.buf.begin(), msg.buf.end());
+				if (m_verbose) {
+					aout(m_self) << "INFO: Auth [" << username << " & " << password << "]" << std::endl;
+				}
+
+				scoped_actor self;
+				self->sync_send(m_user_tbl, auth_atom::value, username, password).await(
+					[this] (bool result) {
+						handle_auth_result(result);
+					}
+				);
+			};
+		} else {
+			if (m_verbose) {
+				aout(m_self) << "INFO: Auth [" << username << " & [empty]]" << std::endl;
+			}
+
+			scoped_actor self;
+			self->sync_send(m_user_tbl, auth_atom::value, username, std::string()).await(
+				[this] (bool result) {
+					handle_auth_result(result);
+				}
+			);
+		}
+	};
+}
+
+void socks5_state::handle_auth_result(bool result) {
+	if (result) {
+		if (m_verbose) {
+			aout(m_self) << "INFO: Auth successfully" << std::endl;
+		}
+
+		m_self->configure_read(m_local_hdl, receive_policy::exactly(4));
+		m_current_handler = std::bind(&socks5_state::handle_request_header, this, std::placeholders::_1);
+		write_to_local({0x01, 0x00});
+	} else {
+		aout(m_self) << "ERROR: Username or password error" << std::endl;
+		m_current_handler = nullptr;
+		write_to_local({0x01, static_cast<char>(0xFF)});
+	}
 }
 
 void socks5_state::handle_request_header(const new_data_msg& msg) {
@@ -312,8 +399,8 @@ void socks5_state::handle_stream_data(const new_data_msg& msg) {
 
 socks5_session::behavior_type
 socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
-					connection_handle hdl, encryptor enc, bool verbose) {
-	self->state.init(hdl, enc, verbose);
+					connection_handle hdl, user_table tbl, encryptor enc, bool verbose) {
+	self->state.init(hdl, tbl, enc, verbose);
 	return {
 		[self] (const new_data_msg& msg) {
 			self->state.handle_new_data(msg);
