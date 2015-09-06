@@ -18,8 +18,6 @@
 #include "socks5_session.hpp"
 #include "connect_helper.hpp"
 #include <arpa/inet.h>
-#include <algorithm>
-#include <iterator>
 #include <chrono>
 #include <string.h>
 
@@ -119,7 +117,7 @@ void socks5_state::write_raw(connection_handle hdl, std::vector<char> buf) const
 	if (wr_buf.empty()) {
 		wr_buf = std::move(buf);
 	} else {
-		std::copy(buf.begin(), buf.end(), std::back_inserter(wr_buf));
+		wr_buf.insert(wr_buf.end(), buf.begin(), buf.end());
 	}
 	m_self->flush(hdl);
 
@@ -329,12 +327,12 @@ void socks5_state::handle_ipv4_request(const new_data_msg& msg) {
 		}
 		
 		std::vector<char> buf = {0x05, 0x00, 0x00, 0x01};
-		std::copy(	reinterpret_cast<const char*>(&addr),
-					reinterpret_cast<const char*>(&addr) + sizeof(addr),
-					std::back_inserter(buf));
-		std::copy(	reinterpret_cast<const char*>(&port),
-					reinterpret_cast<const char*>(&port) + sizeof(port),
-					std::back_inserter(buf));
+		buf.insert(	buf.end(),
+					reinterpret_cast<const char*>(&addr),
+					reinterpret_cast<const char*>(&addr) + sizeof(addr));
+		buf.insert(	buf.end(),
+					reinterpret_cast<const char*>(&port),
+					reinterpret_cast<const char*>(&port) + sizeof(port));
 		write_to_local(std::move(buf));
 
 		m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
@@ -344,12 +342,12 @@ void socks5_state::handle_ipv4_request(const new_data_msg& msg) {
 	m_conn_fail_handler = [this, addr, port] (const std::string& what) {
 		aout(m_self) << "ERROR: " << what << std::endl;
 		std::vector<char> buf = {0x05, 0x05, 0x00, 0x01};
-		std::copy(	reinterpret_cast<const char*>(&addr),
-					reinterpret_cast<const char*>(&addr) + sizeof(addr),
-					std::back_inserter(buf));
-		std::copy(	reinterpret_cast<const char*>(&port),
-					reinterpret_cast<const char*>(&port) + sizeof(port),
-					std::back_inserter(buf));
+		buf.insert(	buf.end(),
+					reinterpret_cast<const char*>(&addr),
+					reinterpret_cast<const char*>(&addr) + sizeof(addr));
+		buf.insert(	buf.end(),
+					reinterpret_cast<const char*>(&port),
+					reinterpret_cast<const char*>(&port) + sizeof(port));
 		write_to_local(std::move(buf));
 	};
 }
@@ -385,10 +383,10 @@ void socks5_state::handle_domainname_request(const new_data_msg& msg) {
 			}
 
 			std::vector<char> buf = {0x05, 0x00, 0x00, 0x03, static_cast<char>(host.size())};
-			std::copy(host.begin(), host.end(), std::back_inserter(buf));
-			std::copy(	reinterpret_cast<const char*>(&port),
-						reinterpret_cast<const char*>(&port) + sizeof(port),
-						std::back_inserter(buf));
+			buf.insert(	buf.end(), host.begin(), host.end());
+			buf.insert(	buf.end(),
+						reinterpret_cast<const char*>(&port),
+						reinterpret_cast<const char*>(&port) + sizeof(port));
 			write_to_local(std::move(buf));
 
 			m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
@@ -398,10 +396,10 @@ void socks5_state::handle_domainname_request(const new_data_msg& msg) {
 		m_conn_fail_handler = [this, host, port] (const std::string& what) {
 			aout(m_self) << "ERROR: " << what << std::endl;
 			std::vector<char> buf = {0x05, 0x05, 0x00, 0x03, static_cast<char>(host.size())};
-			std::copy(host.begin(), host.end(), std::back_inserter(buf));
-			std::copy(	reinterpret_cast<const char*>(&port),
-						reinterpret_cast<const char*>(&port) + sizeof(port),
-						std::back_inserter(buf));
+			buf.insert(	buf.end(), host.begin(), host.end());
+			buf.insert(	buf.end(),
+						reinterpret_cast<const char*>(&port),
+						reinterpret_cast<const char*>(&port) + sizeof(port));
 			write_to_local(std::move(buf));
 		};
 	};

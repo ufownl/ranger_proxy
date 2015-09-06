@@ -19,8 +19,6 @@
 #include "gate_service.hpp"
 #include <rapidxml.hpp>
 #include <rapidxml_utils.hpp>
-#include <algorithm>
-#include <iterator>
 #include <string.h>
 
 using namespace ranger;
@@ -68,9 +66,9 @@ int bootstrap_with_config(const std::string& config, bool verbose) {
 					std::vector<uint8_t> key;
 					node = j->first_node("key");
 					if (node) {
-						std::copy(	node->value(),
-									node->value() + strlen(node->value()),
-									std::back_inserter(key));
+						key.insert(	key.end(),
+									node->value(),
+									node->value() + strlen(node->value()));
 					}
 
 					std::vector<uint8_t> ivec;
@@ -122,9 +120,9 @@ int bootstrap_with_config(const std::string& config, bool verbose) {
 				std::vector<uint8_t> key;
 				node = i->first_node("key");
 				if (node) {
-					std::copy(	node->value(),
-								node->value() + strlen(node->value()),
-								std::back_inserter(key));
+					key.insert(	key.end(),
+								node->value(),
+								node->value() + strlen(node->value()));
 				}
 
 				std::vector<uint8_t> ivec;
