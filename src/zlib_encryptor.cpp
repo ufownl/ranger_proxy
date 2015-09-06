@@ -33,6 +33,9 @@ zlib_state::~zlib_state() {
 
 void zlib_state::init(const encryptor& enc) {
 	m_encryptor = enc;
+	m_unpacker.expect(sizeof(data_header), [this] (std::vector<char> buf) {
+		return handle_unpacked_data(std::move(buf));
+	});
 }
 
 std::vector<char> zlib_state::encrypt(const std::vector<char>& in) const {
@@ -73,64 +76,49 @@ std::vector<char> zlib_state::decrypt(const std::vector<char>& in) {
 		scoped_actor self;
 		self->sync_send(m_encryptor, decrypt_atom::value, in).await(
 			[this] (decrypt_atom, const std::vector<char>& buf) {
-				m_buffers.emplace(buf);
-				m_current_len += buf.size();
+				m_unpacker.append(buf);
 			}
 		);
 	} else {
-		m_buffers.emplace(in);
-		m_current_len += in.size();
+		m_unpacker.append(in);
 	}
 
-	std::vector<char> out;
-	while (m_current_len - m_offset >= m_expected_len) {
-		std::vector<char> src_buf;
-		while (m_expected_len > 0) {
-			if (m_offset + m_expected_len < m_buffers.front().size()) {
-				src_buf.insert(	src_buf.end(),
-								m_buffers.front().begin() + m_offset,
-								m_buffers.front().begin() + m_offset + m_expected_len);
-				m_offset += m_expected_len;
-				m_expected_len = 0;
-			} else {
-				src_buf.insert(	src_buf.end(),
-								m_buffers.front().begin() + m_offset,
-								m_buffers.front().end());
-				m_current_len -= m_buffers.front().size();
-				m_expected_len -= m_buffers.front().size() - m_offset;
-				m_offset = 0;
-				m_buffers.pop();
-			}
+	return std::move(m_origin_buf);
+}
+
+bool zlib_state::handle_unpacked_data(std::vector<char> src_buf) {
+	if (m_origin_len == 0) {
+		const data_header* header = reinterpret_cast<data_header*>(src_buf.data());
+		m_origin_len = header->origin_len;
+		m_unpacker.expect(header->compressed_len, [this] (std::vector<char> buf) {
+			return handle_unpacked_data(std::move(buf));
+		});
+	} else {
+		uLongf dst_len = m_origin_len;
+		std::vector<char> dst_buf(dst_len);
+		auto res = uncompress(	reinterpret_cast<Bytef*>(dst_buf.data()), &dst_len,
+								reinterpret_cast<const Bytef*>(src_buf.data()), src_buf.size());
+		switch (res) {
+		case Z_MEM_ERROR:
+			aout(m_self) << "ERROR: [Zlib] There was not enough memory" << std::endl;
+			return false;
+		case Z_BUF_ERROR:
+			aout(m_self) << "ERROR: [Zlib] There was not enough room in the output buffer" << std::endl;
+			return false;
+		case Z_DATA_ERROR:
+			aout(m_self) << "ERROR: [Zlib] The input data was corrupted or incomplete" << std::endl;
+			return false;
 		}
 
-		if (m_origin_len == 0) {
-			const data_header* header = reinterpret_cast<data_header*>(src_buf.data());
-			m_expected_len = header->compressed_len;
-			m_origin_len = header->origin_len;
-		} else {
-			uLongf dst_len = m_origin_len;
-			std::vector<char> dst_buf(dst_len);
-			auto res = uncompress(	reinterpret_cast<Bytef*>(dst_buf.data()), &dst_len,
-									reinterpret_cast<const Bytef*>(src_buf.data()), src_buf.size());
-			switch (res) {
-			case Z_MEM_ERROR:
-				aout(m_self) << "ERROR: [Zlib] There was not enough memory" << std::endl;
-				return out;
-			case Z_BUF_ERROR:
-				aout(m_self) << "ERROR: [Zlib] There was not enough room in the output buffer" << std::endl;
-				return out;
-			case Z_DATA_ERROR:
-				aout(m_self) << "ERROR: [Zlib] The input data was corrupted or incomplete" << std::endl;
-				return out;
-			}
+		m_origin_buf.insert(m_origin_buf.end(), dst_buf.begin(), dst_buf.end());
+		m_origin_len = 0;
 
-			out.insert(out.end(), dst_buf.begin(), dst_buf.end());
-			m_expected_len = sizeof(data_header);
-			m_origin_len = 0;
-		}
+		m_unpacker.expect(sizeof(data_header), [this] (std::vector<char> buf) {
+			return handle_unpacked_data(std::move(buf));
+		});
 	}
 
-	return out;
+	return true;
 }
 
 encryptor::behavior_type

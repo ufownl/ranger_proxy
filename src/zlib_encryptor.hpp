@@ -18,6 +18,7 @@
 #define RANGER_PROXY_ZLIB_ENCRYPTOR_HPP
 
 #include "encryptor.hpp"
+#include "unpacker.hpp"
 #include <vector>
 #include <queue>
 #include <zlib.h>
@@ -43,13 +44,13 @@ private:
 		uint16_t origin_len;
 	};
 
+	bool handle_unpacked_data(std::vector<char> buf);
+
 	encryptor::pointer m_self;
 	encryptor m_encryptor;
-	std::queue<std::vector<char>> m_buffers;
-	size_t m_current_len {0};
-	uint16_t m_offset {0};
-	uint16_t m_expected_len {sizeof(data_header)};
+	unpacker<uint16_t> m_unpacker;
 	uint16_t m_origin_len {0};
+	std::vector<char> m_origin_buf;
 };
 
 encryptor::behavior_type
