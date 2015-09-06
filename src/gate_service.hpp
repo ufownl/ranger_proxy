@@ -32,7 +32,7 @@ using gate_service =
 		replies_to<publish_atom, std::string, uint16_t>
 			::with_either<ok_atom, uint16_t>
 			::or_else<error_atom, std::string>,
-		reacts_to<add_atom, std::string, uint16_t, std::vector<uint8_t>, std::vector<uint8_t>>
+		reacts_to<add_atom, std::string, uint16_t, std::vector<uint8_t>, std::vector<uint8_t>, bool>
 	>;
 
 class gate_service_state {
@@ -42,6 +42,7 @@ public:
 		uint16_t port;
 		std::vector<uint8_t> key;
 		std::vector<uint8_t> ivec;
+		bool zlib;
 	};
 
 	gate_service_state() = default;
