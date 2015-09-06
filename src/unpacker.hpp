@@ -36,7 +36,18 @@ public:
 	void append(std::vector<char> buf) {
 		m_current_len += buf.size();
 		m_buffers.emplace(std::move(buf));
+		consume();
+	}
 
+	template <class T>
+	void expect(size_type len, T&& handler) {
+		m_expected_len = len;
+		m_expected_handler = std::forward<T>(handler);
+		consume();
+	}
+
+private:
+	void consume() {
 		while (m_expected_len > 0 && m_current_len - m_offset >= m_expected_len) {
 			std::vector<char> expected_buf;
 			while (m_expected_len > 0) {
@@ -63,13 +74,6 @@ public:
 		}
 	}
 
-	template <class T>
-	void expect(size_type len, T&& handler) {
-		m_expected_len = len;
-		m_expected_handler = std::forward<T>(handler);
-	}
-
-private:
 	std::queue<std::vector<char>> m_buffers;
 	size_t m_current_len {0};
 	size_type m_offset {0};
