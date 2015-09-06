@@ -42,7 +42,10 @@ public:
 	socks5_state(const socks5_state&) = delete;
 	socks5_state& operator = (const socks5_state&) = delete;
 
-	void init(connection_handle hdl, user_table tbl, encryptor enc, bool verbose);
+	void init(	connection_handle hdl,
+				const user_table& tbl,
+				const encryptor& enc,
+				bool verbose);
 
 	void handle_new_data(const new_data_msg& msg);
 	void handle_conn_closed(const connection_closed_msg& msg);

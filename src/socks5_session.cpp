@@ -36,7 +36,10 @@ socks5_state::~socks5_state() {
 	}
 }
 
-void socks5_state::init(connection_handle hdl, user_table tbl, encryptor enc, bool verbose) {
+void socks5_state::init(connection_handle hdl,
+						const user_table& tbl,
+						const encryptor& enc,
+						bool verbose) {
 	m_local_hdl = hdl;
 	m_self->configure_read(m_local_hdl, receive_policy::exactly(2));
 	m_user_tbl = tbl;
