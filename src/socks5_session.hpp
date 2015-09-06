@@ -22,6 +22,7 @@
 #include <functional>
 #include "user_table.hpp"
 #include "encryptor.hpp"
+#include "unpacker.hpp"
 
 namespace ranger { namespace proxy {
 
@@ -56,16 +57,14 @@ public:
 
 private:
 	void write_to_local(std::vector<char> buf) const;
-	void write_to_remote(std::vector<char> buf) const;
 	void write_raw(connection_handle hdl, std::vector<char> buf) const;
 
-	void handle_select_method(const new_data_msg& msg);
-	void handle_username_auth(const new_data_msg& msg);
+	bool handle_select_method(std::vector<char> buf);
+	bool handle_username_auth(std::vector<char> buf);
 	void handle_auth_result(bool result);
-	void handle_request_header(const new_data_msg& msg);
-	void handle_ipv4_request(const new_data_msg& msg);
-	void handle_domainname_request(const new_data_msg& msg);
-	void handle_stream_data(const new_data_msg& msg);
+	bool handle_request_header(std::vector<char> buf);
+	bool handle_ipv4_request(std::vector<char> buf);
+	bool handle_domainname_request(std::vector<char> buf);
 
 	const socks5_session::broker_pointer m_self;
 	connection_handle m_local_hdl;
@@ -73,8 +72,8 @@ private:
 	user_table m_user_tbl;
 	encryptor m_encryptor;
 	bool m_verbose {false};
-	bool m_valid_handler {false};
-	std::function<void(const new_data_msg&)> m_current_handler;
+	bool m_valid {false};
+	unpacker<uint8_t> m_unpacker;
 	std::function<void(connection_handle)> m_conn_succ_handler;
 	std::function<void(const std::string&)> m_conn_fail_handler;
 };
