@@ -110,7 +110,6 @@ void socks5_state::handle_auth_result(bool result) {
 			aout(m_self) << "INFO: Auth successfully" << std::endl;
 		}
 
-		m_valid = true;
 		write_to_local({0x01, 0x00});
 		m_unpacker.expect(4, [this] (std::vector<char> buf) {
 			return handle_request_header(std::move(buf));
@@ -164,7 +163,6 @@ bool socks5_state::handle_select_method(std::vector<char> buf) {
 			<< " (nmethods == " << nmethods << ")" << std::endl;
 	}
 
-	m_valid = true;
 	m_unpacker.expect(nmethods, [this] (std::vector<char> buf) {
 		if (m_verbose) {
 			aout(m_self) << "INFO: recv select method data" << std::endl;
@@ -185,7 +183,6 @@ bool socks5_state::handle_select_method(std::vector<char> buf) {
 				if (m_verbose) {
 					aout(m_self) << "INFO: Select method [NO AUTHENTICATION REQUIRED]" << std::endl;
 				}
-				m_valid = true;
 				m_unpacker.expect(4, [this] (std::vector<char> buf) {
 					return handle_request_header(std::move(buf));
 				});
@@ -193,7 +190,6 @@ bool socks5_state::handle_select_method(std::vector<char> buf) {
 				if (m_verbose) {
 					aout(m_self) << "INFO: Select method [USERNAME/PASSWORD]" << std::endl;
 				}
-				m_valid = true;
 				m_unpacker.expect(2, [this] (std::vector<char> buf) {
 					return handle_username_auth(std::move(buf));
 				});
@@ -226,12 +222,10 @@ bool socks5_state::handle_username_auth(std::vector<char> buf) {
 		return false;
 	}
 
-	m_valid = true;
 	m_unpacker.expect(len + 1, [this] (std::vector<char> buf) {
 		uint8_t len = buf.back();
 		std::string username(buf.begin(), buf.begin() + buf.size() - 1);
 		if (len > 0) {
-			m_valid = true;
 			m_unpacker.expect(len, [this, username] (std::vector<char> buf) {
 				std::string password(buf.begin(), buf.end());
 				if (m_verbose) {
@@ -278,7 +272,6 @@ bool socks5_state::handle_request_header(std::vector<char> buf) {
 		if (m_verbose) {
 			aout(m_self) << "INFO: CMD[connect] ADDR[ipv4]" << std::endl;
 		}
-		m_valid = true;
 		m_unpacker.expect(6, [this] (std::vector<char> buf) {
 			return handle_ipv4_request(std::move(buf));
 		});
@@ -287,7 +280,6 @@ bool socks5_state::handle_request_header(std::vector<char> buf) {
 		if (m_verbose) {
 			aout(m_self) << "INFO: CMD[connect] ADDR[domainname]" << std::endl;
 		}
-		m_valid = true;
 		m_unpacker.expect(1, [this] (std::vector<char> buf) {
 			return handle_domainname_request(std::move(buf));
 		});
@@ -354,7 +346,6 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
 }
 
 bool socks5_state::handle_domainname_request(std::vector<char> buf) {
-	m_valid = true;
 	m_unpacker.expect(static_cast<uint8_t>(buf[0]) + 2, [this] (std::vector<char> buf) {
 		std::string host(buf.begin(), buf.begin() + buf.size() - 2);
 		uint16_t port;
