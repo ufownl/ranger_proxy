@@ -50,7 +50,10 @@ void socks5_state::init(connection_handle hdl,
 }
 
 void socks5_state::handle_new_data(const new_data_msg& msg) {
-	if (m_encryptor) {
+	if (!m_valid) {
+		caf::aout(m_self) << "ERROR: Current state is invalid" << std::endl;
+		m_self->quit();
+	} else if (m_encryptor) {
 		if (msg.handle == m_local_hdl) {
 			m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
 		} else {
