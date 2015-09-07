@@ -19,7 +19,7 @@
 
 #include <vector>
 #include <queue>
-#include <functional>
+#include "scope_guard.hpp"
 
 namespace ranger { namespace proxy {
 
@@ -48,6 +48,13 @@ public:
 
 private:
 	void consume() {
+		if (m_consuming) {
+			return;
+		}
+
+		m_consuming = true;
+		scope_guard consuming_guard([this] { m_consuming = false; });
+
 		while (m_expected_len > 0 && m_current_len - m_offset >= m_expected_len) {
 			std::vector<char> expected_buf;
 			while (m_expected_len > 0) {
@@ -79,6 +86,7 @@ private:
 	size_type m_offset {0};
 	size_type m_expected_len {0};
 	std::function<bool(std::vector<char>)> m_expected_handler;
+	bool m_consuming {false};
 };
 
 } }
