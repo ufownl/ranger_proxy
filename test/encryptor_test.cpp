@@ -132,7 +132,7 @@ TEST_F(ranger_proxy_test, zlib_encryptor) {
 		caf::anon_send_exit(enc, caf::exit_reason::kill);
 	});
 
-	std::vector<char> plain = {'H', 'e', 'l', 'l', 'o'};
+	std::vector<char> plain(8192, 'a');
 	std::vector<char> cipher;
 	{
 		caf::scoped_actor self;
@@ -170,7 +170,7 @@ TEST_F(ranger_proxy_test, zlib_aes_cfb128_encryptor_256) {
 		caf::anon_send_exit(enc, caf::exit_reason::kill);
 	});
 
-	std::vector<char> plain = {'R', 'a', 'n', 'g', 'e', 'r'};
+	std::vector<char> plain(8192, 'b');
 	std::vector<char> cipher;
 	{
 		caf::scoped_actor self;

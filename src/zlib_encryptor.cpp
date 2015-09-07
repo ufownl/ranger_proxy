@@ -52,12 +52,22 @@ zlib_state::encrypt_promise_type zlib_state::encrypt(const std::vector<char>& in
 		return {};
 	}
 
-	out.resize(dest_len + sizeof(data_header));
+	if (dest_len < in.size()) {
+		out.resize(dest_len + sizeof(data_header));
 
-	data_header header;
-	header.compressed_len = dest_len;
-	header.origin_len = in.size();
-	memcpy(out.data(), &header, sizeof(header));
+		data_header header;
+		header.compressed_len = dest_len;
+		header.origin_len = in.size();
+		memcpy(out.data(), &header, sizeof(header));
+	} else {
+		out.resize(in.size() + sizeof(data_header));
+
+		data_header header;
+		header.compressed_len = in.size();
+		header.origin_len = in.size();
+		memcpy(out.data(), &header, sizeof(header));
+		memcpy(out.data() + sizeof(header), in.data(), in.size());
+	}
 
 	encrypt_promise_type promise = m_self->make_response_promise();
 	if (m_encryptor) {
@@ -98,23 +108,28 @@ bool zlib_state::handle_unpacked_data(std::vector<char> src_buf) {
 			return handle_unpacked_data(std::move(buf));
 		});
 	} else {
-		uLongf dst_len = m_origin_len;
-		std::vector<char> dst_buf(dst_len);
-		auto res = uncompress(	reinterpret_cast<Bytef*>(dst_buf.data()), &dst_len,
-								reinterpret_cast<const Bytef*>(src_buf.data()), src_buf.size());
-		switch (res) {
-		case Z_MEM_ERROR:
-			aout(m_self) << "ERROR: [Zlib] There was not enough memory" << std::endl;
-			return false;
-		case Z_BUF_ERROR:
-			aout(m_self) << "ERROR: [Zlib] There was not enough room in the output buffer" << std::endl;
-			return false;
-		case Z_DATA_ERROR:
-			aout(m_self) << "ERROR: [Zlib] The input data was corrupted or incomplete" << std::endl;
-			return false;
+		if (src_buf.size() < m_origin_len) {
+			uLongf dst_len = m_origin_len;
+			std::vector<char> dst_buf(dst_len);
+			auto res = uncompress(	reinterpret_cast<Bytef*>(dst_buf.data()), &dst_len,
+									reinterpret_cast<const Bytef*>(src_buf.data()), src_buf.size());
+			switch (res) {
+			case Z_MEM_ERROR:
+				aout(m_self) << "ERROR: [Zlib] There was not enough memory" << std::endl;
+				return false;
+			case Z_BUF_ERROR:
+				aout(m_self) << "ERROR: [Zlib] There was not enough room in the output buffer" << std::endl;
+				return false;
+			case Z_DATA_ERROR:
+				aout(m_self) << "ERROR: [Zlib] The input data was corrupted or incomplete" << std::endl;
+				return false;
+			}
+
+			m_origin_buf.insert(m_origin_buf.end(), dst_buf.begin(), dst_buf.end());
+		} else {
+			m_origin_buf.insert(m_origin_buf.end(), src_buf.begin(), src_buf.end());
 		}
 
-		m_origin_buf.insert(m_origin_buf.end(), dst_buf.begin(), dst_buf.end());
 		m_origin_len = 0;
 
 		m_unpacker.expect(sizeof(data_header), [this] (std::vector<char> buf) {
