@@ -32,6 +32,7 @@ using socks5_session =
 		reacts_to<error_atom, std::string>,
 		reacts_to<encrypt_atom, std::vector<char>>,
 		reacts_to<decrypt_atom, std::vector<char>>,
+		reacts_to<auth_atom, bool>,
 		reacts_to<close_atom>
 	>;
 
@@ -54,6 +55,7 @@ public:
 	void handle_connect_fail(const std::string& what);
 	void handle_encrypted_data(const std::vector<char>& buf);
 	void handle_decrypted_data(const std::vector<char>& buf);
+	void handle_auth_result(bool result);
 
 private:
 	void write_to_local(std::vector<char> buf) const;
@@ -61,7 +63,6 @@ private:
 
 	bool handle_select_method(std::vector<char> buf);
 	bool handle_username_auth(std::vector<char> buf);
-	void handle_auth_result(bool result);
 	bool handle_request_header(std::vector<char> buf);
 	bool handle_ipv4_request(std::vector<char> buf);
 	bool handle_domainname_request(std::vector<char> buf);

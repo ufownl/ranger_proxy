@@ -101,6 +101,24 @@ void socks5_state::handle_decrypted_data(const std::vector<char>& buf) {
 	}
 }
 
+void socks5_state::handle_auth_result(bool result) {
+	if (result) {
+		if (m_verbose) {
+			aout(m_self) << "INFO: Auth successfully" << std::endl;
+		}
+
+		m_valid = true;
+		write_to_local({0x01, 0x00});
+		m_unpacker.expect(4, [this] (std::vector<char> buf) {
+			return handle_request_header(std::move(buf));
+		});
+	} else {
+		aout(m_self) << "ERROR: Username or password error" << std::endl;
+		m_valid = false;
+		write_to_local({0x01, static_cast<char>(0xFF)});
+	}
+}
+
 void socks5_state::write_to_local(std::vector<char> buf) const {
 	if (m_encryptor) {
 		m_self->send(m_encryptor, encrypt_atom::value, std::move(buf));
@@ -217,56 +235,21 @@ bool socks5_state::handle_username_auth(std::vector<char> buf) {
 					aout(m_self) << "INFO: Auth [" << username << " & " << password << "]" << std::endl;
 				}
 
-				bool res;
-				scoped_actor self;
-				self->sync_send(m_user_tbl, auth_atom::value, username, password).await(
-					[this, &res] (bool result) {
-						handle_auth_result(result);
-						res = result;
-					}
-				);
-
-				return res;
+				m_self->send(m_user_tbl, auth_atom::value, username, password);
+				return true;
 			});
-
-			return true;
 		} else {
 			if (m_verbose) {
 				aout(m_self) << "INFO: Auth [" << username << " & [empty]]" << std::endl;
 			}
 
-			bool res;
-			scoped_actor self;
-			self->sync_send(m_user_tbl, auth_atom::value, username, std::string()).await(
-				[this, &res] (bool result) {
-					handle_auth_result(result);
-					res = result;
-				}
-			);
-
-			return res;
+			m_self->send(m_user_tbl, auth_atom::value, username, std::string());
 		}
+
+		return true;
 	});
 
 	return true;
-}
-
-void socks5_state::handle_auth_result(bool result) {
-	if (result) {
-		if (m_verbose) {
-			aout(m_self) << "INFO: Auth successfully" << std::endl;
-		}
-
-		m_valid = true;
-		write_to_local({0x01, 0x00});
-		m_unpacker.expect(4, [this] (std::vector<char> buf) {
-			return handle_request_header(std::move(buf));
-		});
-	} else {
-		aout(m_self) << "ERROR: Username or password error" << std::endl;
-		m_valid = false;
-		write_to_local({0x01, static_cast<char>(0xFF)});
-	}
 }
 
 bool socks5_state::handle_request_header(std::vector<char> buf) {
@@ -442,6 +425,9 @@ socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
 		},
 		[self] (decrypt_atom, const std::vector<char>& buf) {
 			self->state.handle_decrypted_data(buf);
+		},
+		[self] (auth_atom, bool result) {
+			self->state.handle_auth_result(result);
 		},
 		[self] (close_atom) {
 			self->quit();

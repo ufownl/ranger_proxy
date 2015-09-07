@@ -25,7 +25,7 @@ using auth_atom = atom_constant<atom("auth")>;
 
 using user_table = typed_actor<
 	replies_to<add_atom, std::string, std::string>::with<bool, std::string>,
-	replies_to<auth_atom, std::string, std::string>::with<bool>
+	replies_to<auth_atom, std::string, std::string>::with<auth_atom, bool>
 >;
 
 user_table::behavior_type user_table_impl(user_table::pointer self);

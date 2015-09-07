@@ -30,14 +30,14 @@ user_table::behavior_type user_table_impl(user_table::pointer self) {
 		[=] (auth_atom, const std::string& username, const std::string& password) {
 			auto it = tbl->find(username);
 			if (it == tbl->end()) {
-				return false;
+				return std::make_tuple(auth_atom::value, false);
 			}
 
 			if (it->second != password) {
-				return false;
+				return std::make_tuple(auth_atom::value, false);
 			}
 
-			return true;
+			return std::make_tuple(auth_atom::value, true);
 		}
 	};
 }
