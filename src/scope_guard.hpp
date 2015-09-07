@@ -14,32 +14,40 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "common.hpp"
-#include "user_table.hpp"
-#include <unordered_map>
-#include <memory>
+#ifndef RANGER_PROXY_SCOPE_GUARD_HPP
+#define RANGER_PROXY_SCOPE_GUARD_HPP
+
+#include <functional>
 
 namespace ranger { namespace proxy {
 
-user_table::behavior_type user_table_impl(user_table::pointer self) {
-	auto tbl = std::make_shared<std::unordered_map<std::string, std::string>>();
-	return {
-		[=] (add_atom, const std::string& username, const std::string& password) {
-			return std::make_tuple(tbl->emplace(username, password).second, username);
-		},
-		[=] (auth_atom, const std::string& username, const std::string& password) {
-			auto it = tbl->find(username);
-			if (it == tbl->end()) {
-				return std::make_tuple(auth_atom::value, false);
-			}
+class scope_guard {
+public:
+	template <class T>
+	explicit scope_guard(T&& handler)
+		: m_exit_handler(std::forward<T>(handler))
+		, m_dismiss(false) {
+		// nop
+	}
 
-			if (it->second != password) {
-				return std::make_tuple(auth_atom::value, false);
-			}
-
-			return std::make_tuple(auth_atom::value, true);
+	~scope_guard() {
+		if (!m_dismiss) {
+			m_exit_handler();
 		}
-	};
-}
+	}
+
+	scope_guard(const scope_guard&) = delete;
+	scope_guard& operator = (const scope_guard&) = delete;
+
+	void dismiss() {
+		m_dismiss = true;
+	}
+
+private:
+	std::function<void()> m_exit_handler;
+	bool m_dismiss;
+};
 
 } }
+
+#endif	// RANGER_PROXY_SCOPE_GUARD_HPP

@@ -18,6 +18,7 @@
 #include "socks5_service.hpp"
 #include "socks5_session.hpp"
 #include "aes_cfb128_encryptor.hpp"
+#include "zlib_encryptor.hpp"
 
 namespace ranger { namespace proxy {
 
@@ -37,10 +38,17 @@ void socks5_service_state::set_ivec(const std::vector<uint8_t>& ivec) {
 	m_ivec = ivec;
 }
 
+void socks5_service_state::set_zlib(bool zlib) {
+	m_zlib = zlib;
+}
+
 encryptor socks5_service_state::spawn_encryptor() const {
 	encryptor enc;
 	if (!m_key.empty() || !m_ivec.empty()) {
 		enc = spawn(aes_cfb128_encryptor_impl, m_key, m_ivec);
+	}
+	if (m_zlib) {
+		enc = spawn(zlib_encryptor_impl, enc);
 	}
 	return enc;
 }
@@ -93,6 +101,9 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
 		[self] (encrypt_atom, const std::vector<uint8_t>& key, const std::vector<uint8_t>& ivec) {
 			self->state.set_key(key);
 			self->state.set_ivec(ivec);
+		},
+		[self] (zlib_atom, bool zlib) {
+			self->state.set_zlib(zlib);
 		}
 	};
 }

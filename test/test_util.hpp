@@ -22,7 +22,7 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include <string>
-#include <functional>
+#include "scope_guard.hpp"
 
 using echo_service =
 	caf::io::experimental::minimal_server::extend<
@@ -91,31 +91,6 @@ protected:
 	uint16_t m_port {0};
 };
 
-class scope_guard {
-public:
-	template <class T>
-	explicit scope_guard(T&& handler)
-		: m_exit_handler(std::forward<T>(handler))
-		, m_dismiss(false) {
-		// nop
-	}
-
-	~scope_guard() {
-		if (!m_dismiss) {
-			m_exit_handler();
-		}
-	}
-
-	scope_guard(const scope_guard&) = delete;
-	scope_guard& operator = (const scope_guard&) = delete;
-
-	void dismiss() {
-		m_dismiss = true;
-	}
-
-private:
-	std::function<void()> m_exit_handler;
-	bool m_dismiss;
-};
+using ranger::proxy::scope_guard;
 
 #endif	// TEST_UTIL_HPP

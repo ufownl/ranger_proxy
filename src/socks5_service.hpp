@@ -24,6 +24,8 @@
 
 namespace ranger { namespace proxy {
 
+using zlib_atom = atom_constant<atom("zlib")>;
+
 using socks5_service =
 	minimal_server::extend<
 		replies_to<publish_atom, uint16_t>
@@ -33,7 +35,8 @@ using socks5_service =
 			::with_either<ok_atom, uint16_t>
 			::or_else<error_atom, std::string>,
 		replies_to<add_atom, std::string, std::string>::with<bool, std::string>,
-		reacts_to<encrypt_atom, std::vector<uint8_t>, std::vector<uint8_t>>
+		reacts_to<encrypt_atom, std::vector<uint8_t>, std::vector<uint8_t>>,
+		reacts_to<zlib_atom, bool>
 	>;
 
 class socks5_service_state {
@@ -48,6 +51,7 @@ public:
 
 	void set_key(const std::vector<uint8_t>& key);
 	void set_ivec(const std::vector<uint8_t>& ivec);
+	void set_zlib(bool zlib);
 
 	encryptor spawn_encryptor() const;
 
@@ -55,6 +59,7 @@ private:
 	user_table m_user_tbl;
 	std::vector<uint8_t> m_key;
 	std::vector<uint8_t> m_ivec;
+	bool m_zlib {false};
 };
 
 socks5_service::behavior_type

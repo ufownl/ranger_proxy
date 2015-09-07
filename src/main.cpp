@@ -19,8 +19,6 @@
 #include "gate_service.hpp"
 #include <rapidxml.hpp>
 #include <rapidxml_utils.hpp>
-#include <algorithm>
-#include <iterator>
 #include <string.h>
 
 using namespace ranger;
@@ -68,13 +66,19 @@ int bootstrap_with_config(const std::string& config, bool verbose) {
 					std::vector<uint8_t> key;
 					node = j->first_node("key");
 					if (node) {
-						std::copy(	node->value(),
-									node->value() + strlen(node->value()),
-									std::back_inserter(key));
+						key.insert(	key.end(),
+									node->value(),
+									node->value() + strlen(node->value()));
+					}
+
+					bool zlib = false;
+					node = j->first_node("zlib");
+					if (node && atoi(node->value())) {
+						zlib = true;
 					}
 
 					std::vector<uint8_t> ivec;
-					self->send(serv, add_atom::value, remote_addr, remote_port, key, ivec);
+					self->send(serv, add_atom::value, remote_addr, remote_port, key, ivec, zlib);
 				}
 
 				auto ok_hdl = [] (ok_atom, uint16_t) {
@@ -122,13 +126,18 @@ int bootstrap_with_config(const std::string& config, bool verbose) {
 				std::vector<uint8_t> key;
 				node = i->first_node("key");
 				if (node) {
-					std::copy(	node->value(),
-								node->value() + strlen(node->value()),
-								std::back_inserter(key));
+					key.insert(	key.end(),
+								node->value(),
+								node->value() + strlen(node->value()));
 				}
 
 				std::vector<uint8_t> ivec;
 				self->send(serv, encrypt_atom::value, key, ivec);
+
+				node = i->first_node("zlib");
+				if (node && atoi(node->value())) {
+					self->send(serv, zlib_atom::value, true);
+				}
 
 				auto ok_hdl = [] (ok_atom, uint16_t) {
 					std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
@@ -175,6 +184,7 @@ int bootstrap(int argc, char* argv[]) {
 		{"username", "set username (it will enable username auth method)", username},
 		{"password", "set password", password},
 		{"key,k", "set key (default: empty)", key_src},
+		{"zlib,z", "enable zlib compression (default: disable)"},
 		{"gate,G", "run in gate mode"},
 		{"remote_host", "set remote host (only used in gate mode)", remote_host},
 		{"remote_port", "set remote port (only used in gate mode)", remote_port},
@@ -201,7 +211,8 @@ int bootstrap(int argc, char* argv[]) {
 		auto serv = spawn_io(gate_service_impl);
 		std::vector<uint8_t> key(key_src.begin(), key_src.end());
 		std::vector<uint8_t> ivec;
-		self->send(serv, add_atom::value, remote_host, remote_port, key, ivec);
+		self->send(	serv, add_atom::value, remote_host, remote_port,
+					key, ivec, res.opts.count("zlib") > 0);
 		auto ok_hdl = [] (ok_atom, uint16_t) {
 			std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
 		};
@@ -235,6 +246,7 @@ int bootstrap(int argc, char* argv[]) {
 		std::vector<uint8_t> key(key_src.begin(), key_src.end());
 		std::vector<uint8_t> ivec;
 		self->send(serv, encrypt_atom::value, key, ivec);
+		self->send(serv, zlib_atom::value, res.opts.count("zlib") > 0);
 		auto ok_hdl = [] (ok_atom, uint16_t) {
 			std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
 		};

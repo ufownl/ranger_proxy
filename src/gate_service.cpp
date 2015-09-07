@@ -18,6 +18,7 @@
 #include "gate_service.hpp"
 #include "gate_session.hpp"
 #include "aes_cfb128_encryptor.hpp"
+#include "zlib_encryptor.hpp"
 
 namespace ranger { namespace proxy {
 
@@ -53,6 +54,9 @@ gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self
 				if (!host.key.empty() || !host.ivec.empty()) {
 					enc = spawn(aes_cfb128_encryptor_impl, host.key, host.ivec);
 				}
+				if (host.zlib) {
+					enc = spawn(zlib_encryptor_impl, enc);
+				}
 				auto forked = self->fork(gate_session_impl, msg.handle, host.addr, host.port, enc);
 				self->link_to(forked);
 			} else {
@@ -86,12 +90,13 @@ gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self
 			}
 		},
 		[=] (	add_atom, const std::string& addr, uint16_t port,
-				const std::vector<uint8_t>& key, const std::vector<uint8_t>& ivec) {
+				const std::vector<uint8_t>& key, const std::vector<uint8_t>& ivec, bool zlib) {
 			gate_service_state::host_info host;
 			host.addr = addr;
 			host.port = port;
 			host.key = key;
 			host.ivec = ivec;
+			host.zlib = zlib;
 			self->state.add_host(std::move(host));
 		}
 	};
