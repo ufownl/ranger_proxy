@@ -17,6 +17,7 @@ Allowed options:
   --username arg     : set username (it will enable username auth method)
   --password arg     : set password
   -k [--key] arg     : set key (default: empty)
+  -z [--zlib]        : enable zlib compression (default: disable)
   -G [--gate]        : run in gate mode
   --remote_host arg  : set remote host (only used in gate mode)
   --remote_port arg  : set remote port (only used in gate mode)
