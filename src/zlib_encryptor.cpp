@@ -38,11 +38,11 @@ void zlib_state::init(const encryptor& enc) {
 	});
 }
 
-std::vector<char> zlib_state::encrypt(const std::vector<char>& in) const {
+zlib_state::encrypt_promise_type zlib_state::encrypt(const std::vector<char>& in) const {
 	auto dest_len = compressBound(in.size());
 	std::vector<char> out(dest_len + sizeof(data_header));
-	auto res = compress(reinterpret_cast<Bytef*>(out.data() + sizeof(data_header)), &dest_len,
-						reinterpret_cast<const Bytef*>(in.data()), in.size());
+	auto res = compress2(	reinterpret_cast<Bytef*>(out.data() + sizeof(data_header)), &dest_len,
+							reinterpret_cast<const Bytef*>(in.data()), in.size(), Z_BEST_COMPRESSION);
 	switch (res) {
 	case Z_MEM_ERROR:
 		aout(m_self) << "ERROR: [Zlib] There was not enough memory" << std::endl;
@@ -59,31 +59,35 @@ std::vector<char> zlib_state::encrypt(const std::vector<char>& in) const {
 	header.origin_len = in.size();
 	memcpy(out.data(), &header, sizeof(header));
 
+	encrypt_promise_type promise = m_self->make_response_promise();
 	if (m_encryptor) {
-		scoped_actor self;
-		self->sync_send(m_encryptor, encrypt_atom::value, out).await(
-			[&out] (encrypt_atom, const std::vector<char>& buf) {
-				out = buf;
+		m_self->sync_send(m_encryptor, encrypt_atom::value, out).then(
+			[promise] (encrypt_atom, const std::vector<char>& buf) {
+				promise.deliver(encrypt_atom::value, buf);
 			}
 		);
+	} else {
+		promise.deliver(encrypt_atom::value, std::move(out));
 	}
 
-	return out;
+	return promise;
 }
 
-std::vector<char> zlib_state::decrypt(const std::vector<char>& in) {
+zlib_state::decrypt_promise_type zlib_state::decrypt(const std::vector<char>& in) {
+	decrypt_promise_type promise = m_self->make_response_promise();
 	if (m_encryptor) {
-		scoped_actor self;
-		self->sync_send(m_encryptor, decrypt_atom::value, in).await(
-			[this] (decrypt_atom, const std::vector<char>& buf) {
+		m_self->sync_send(m_encryptor, decrypt_atom::value, in).then(
+			[this, promise] (decrypt_atom, const std::vector<char>& buf) {
 				m_unpacker.append(buf);
+				promise.deliver(decrypt_atom::value, std::move(m_origin_buf));
 			}
 		);
 	} else {
 		m_unpacker.append(in);
+		promise.deliver(decrypt_atom::value, std::move(m_origin_buf));
 	}
 
-	return std::move(m_origin_buf);
+	return promise;
 }
 
 bool zlib_state::handle_unpacked_data(std::vector<char> src_buf) {
@@ -126,10 +130,10 @@ zlib_encryptor_impl(encryptor::stateful_pointer<zlib_state> self, encryptor enc)
 	self->state.init(enc);
 	return {
 		[self] (encrypt_atom, const std::vector<char>& data) {
-			return std::make_tuple(encrypt_atom::value, self->state.encrypt(data));
+			return self->state.encrypt(data);
 		},
 		[self] (decrypt_atom, const std::vector<char>& data) {
-			return std::make_tuple(decrypt_atom::value, self->state.decrypt(data));
+			return self->state.decrypt(data);
 		}
 	};
 }

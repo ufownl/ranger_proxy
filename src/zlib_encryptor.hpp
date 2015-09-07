@@ -27,6 +27,12 @@ namespace ranger { namespace proxy {
 
 class zlib_state {
 public:
+	using encrypt_promise_type =
+		typed_response_promise<encrypt_atom, std::vector<char>>;
+
+	using decrypt_promise_type =
+		typed_response_promise<decrypt_atom, std::vector<char>>;
+
 	zlib_state(encryptor::pointer self);
 	~zlib_state();
 
@@ -35,8 +41,8 @@ public:
 
 	void init(const encryptor& enc);
 
-	std::vector<char> encrypt(const std::vector<char>& in) const;
-	std::vector<char> decrypt(const std::vector<char>& in);
+	encrypt_promise_type encrypt(const std::vector<char>& in) const;
+	decrypt_promise_type decrypt(const std::vector<char>& in);
 
 private:
 	struct data_header {
