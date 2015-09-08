@@ -23,6 +23,7 @@ Allowed options:
   --remote_port arg  : set remote port (only used in gate mode)
   --config arg       : load a config file (it will disable all options above)
   -v [--verbose]     : enable verbose output (default: disable)
+  -d [--daemon]      : run as daemon
   -h [-?,--help]     : print this text
 ```
 
