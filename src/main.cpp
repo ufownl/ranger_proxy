@@ -19,153 +19,167 @@
 #include "gate_service.hpp"
 #include <rapidxml.hpp>
 #include <rapidxml_utils.hpp>
+#include <unistd.h>
 #include <string.h>
 
 using namespace ranger;
 using namespace ranger::proxy;
 using namespace ranger::proxy::experimental;
 
+int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
+	auto next = root->next_sibling("ranger_proxy");
+	if (next) {
+		auto pid = fork();
+		if (pid == 0) {
+			return bootstrap_with_config_impl(next, verbose);
+		} else if (pid < 0) {
+			std::cout << "ERROR: Failed in calling fork()" << std::endl;
+			return 1;
+		}
+	}
+
+	int ret = 0;
+	std::string host;
+	auto node = root->first_node("host");
+	if (node) {
+		host = node->value();
+	}
+
+	uint16_t port = 1080;
+	node = root->first_node("port");
+	if (node) {
+		port = atoi(node->value());
+	}
+
+	node = root->first_node("gate");
+	if (node && atoi(node->value())) {
+		auto serv = spawn_io(gate_service_impl);
+		scoped_actor self;
+		for (auto j = root->first_node("remote_host"); j; j = j->next_sibling("remote_host")) {
+			std::string remote_addr;
+			node = j->first_node("address");
+			if (node) {
+				remote_addr = node->value();
+			}
+
+			uint16_t remote_port = 0;
+			node = j->first_node("port");
+			if (node) {
+				remote_port = atoi(node->value());
+			}
+
+			std::vector<uint8_t> key;
+			node = j->first_node("key");
+			if (node) {
+				key.insert(	key.end(),
+							node->value(),
+							node->value() + strlen(node->value()));
+			}
+
+			bool zlib = false;
+			node = j->first_node("zlib");
+			if (node && atoi(node->value())) {
+				zlib = true;
+			}
+
+			std::vector<uint8_t> ivec;
+			self->send(serv, add_atom::value, remote_addr, remote_port, key, ivec, zlib);
+		}
+
+		auto ok_hdl = [] (ok_atom, uint16_t) {
+			std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
+		};
+		auto err_hdl = [&ret] (error_atom, const std::string& what) {
+			std::cout << "ERROR: " << what << std::endl;
+			ret = 1;
+		};
+		if (host.empty()) {
+			self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
+		} else {
+			self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
+		}
+
+		if (ret) {
+			anon_send_exit(serv, exit_reason::kill);
+		}
+	} else {
+		auto serv = spawn_io(socks5_service_impl, verbose);
+		scoped_actor self;
+		for (auto j = root->first_node("user"); j; j = j->next_sibling("user")) {
+			node = j->first_node("username");
+			if (node) {
+				std::string username = node->value();
+				std::string password;
+				node = j->first_node("password");
+				if (node) {
+					password = node->value();
+				}
+
+				self->sync_send(serv, add_atom::value, username, password).await(
+					[] (bool result, const std::string& username) {
+						if (result) {
+							std::cout << "INFO: Add user[" << username << "] successfully" << std::endl;
+						} else {
+							std::cout << "ERROR: Fail in adding user[" << username << "]" << std::endl;
+						}
+					}
+				);
+			}
+		}
+
+		std::vector<uint8_t> key;
+		node = root->first_node("key");
+		if (node) {
+			key.insert(	key.end(),
+						node->value(),
+						node->value() + strlen(node->value()));
+		}
+
+		std::vector<uint8_t> ivec;
+		self->send(serv, encrypt_atom::value, key, ivec);
+
+		node = root->first_node("zlib");
+		if (node && atoi(node->value())) {
+			self->send(serv, zlib_atom::value, true);
+		}
+
+		auto ok_hdl = [] (ok_atom, uint16_t) {
+			std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
+		};
+		auto err_hdl = [&ret] (error_atom, const std::string& what) {
+			std::cout << "ERROR: " << what << std::endl;
+			ret = 1;
+		};
+		if (host.empty()) {
+			self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
+		} else {
+			self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
+		}
+
+		if (ret) {
+			anon_send_exit(serv, exit_reason::kill);
+		}
+	}
+	return ret;
+}
+
 int bootstrap_with_config(const std::string& config, bool verbose) {
-	int final_ret = 0;
 	try {
 		rapidxml::file<> fin(config.c_str());
 		rapidxml::xml_document<> doc;
 		doc.parse<0>(fin.data());
-		for (auto i = doc.first_node("ranger_proxy"); i; i = i->next_sibling("ranger_proxy")) {
-			int ret = 0;
-
-			std::string host;
-			auto node = i->first_node("host");
-			if (node) {
-				host = node->value();
-			}
-
-			uint16_t port = 1080;
-			node = i->first_node("port");
-			if (node) {
-				port = atoi(node->value());
-			}
-
-			node = i->first_node("gate");
-			if (node && atoi(node->value())) {
-				auto serv = spawn_io(gate_service_impl);
-				scoped_actor self;
-				for (auto j = i->first_node("remote_host"); j; j = j->next_sibling("remote_host")) {
-					std::string remote_addr;
-					node = j->first_node("address");
-					if (node) {
-						remote_addr = node->value();
-					}
-
-					uint16_t remote_port = 0;
-					node = j->first_node("port");
-					if (node) {
-						remote_port = atoi(node->value());
-					}
-
-					std::vector<uint8_t> key;
-					node = j->first_node("key");
-					if (node) {
-						key.insert(	key.end(),
-									node->value(),
-									node->value() + strlen(node->value()));
-					}
-
-					bool zlib = false;
-					node = j->first_node("zlib");
-					if (node && atoi(node->value())) {
-						zlib = true;
-					}
-
-					std::vector<uint8_t> ivec;
-					self->send(serv, add_atom::value, remote_addr, remote_port, key, ivec, zlib);
-				}
-
-				auto ok_hdl = [] (ok_atom, uint16_t) {
-					std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
-				};
-				auto err_hdl = [&ret] (error_atom, const std::string& what) {
-					std::cout << "ERROR: " << what << std::endl;
-					ret = 1;
-				};
-				if (host.empty()) {
-					self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
-				} else {
-					self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
-				}
-
-				if (ret) {
-					anon_send_exit(serv, exit_reason::kill);
-					final_ret += ret;
-				}
-			} else {
-				auto serv = spawn_io(socks5_service_impl, verbose);
-				scoped_actor self;
-				for (auto j = i->first_node("user"); j; j = j->next_sibling("user")) {
-					node = j->first_node("username");
-					if (node) {
-						std::string username = node->value();
-						std::string password;
-						node = j->first_node("password");
-						if (node) {
-							password = node->value();
-						}
-
-						self->sync_send(serv, add_atom::value, username, password).await(
-							[] (bool result, const std::string& username) {
-								if (result) {
-									std::cout << "INFO: Add user[" << username << "] successfully" << std::endl;
-								} else {
-									std::cout << "ERROR: Fail in adding user[" << username << "]" << std::endl;
-								}
-							}
-						);
-					}
-				}
-
-				std::vector<uint8_t> key;
-				node = i->first_node("key");
-				if (node) {
-					key.insert(	key.end(),
-								node->value(),
-								node->value() + strlen(node->value()));
-				}
-
-				std::vector<uint8_t> ivec;
-				self->send(serv, encrypt_atom::value, key, ivec);
-
-				node = i->first_node("zlib");
-				if (node && atoi(node->value())) {
-					self->send(serv, zlib_atom::value, true);
-				}
-
-				auto ok_hdl = [] (ok_atom, uint16_t) {
-					std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
-				};
-				auto err_hdl = [&ret] (error_atom, const std::string& what) {
-					std::cout << "ERROR: " << what << std::endl;
-					ret = 1;
-				};
-				if (host.empty()) {
-					self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
-				} else {
-					self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
-				}
-
-				if (ret) {
-					anon_send_exit(serv, exit_reason::kill);
-					final_ret += ret;
-				}
-			}
+		auto root = doc.first_node("ranger_proxy");
+		if (root) {
+			return bootstrap_with_config_impl(root, verbose);
 		}
+		return 0;
 	} catch (const rapidxml::parse_error& e) {
 		std::cout << "ERROR: " << e.what() << " [" << e.where<const char>() << "]" << std::endl;
-		final_ret += 1;
+		return 1;
 	} catch (const std::runtime_error& e) {
 		std::cout << "ERROR: " << e.what() << std::endl;
-		final_ret += 1;
+		return 1;
 	}
-	return final_ret;
 }
 
 int bootstrap(int argc, char* argv[]) {
