@@ -203,7 +203,8 @@ int bootstrap(int argc, char* argv[]) {
 		{"remote_host", "set remote host (only used in gate mode)", remote_host},
 		{"remote_port", "set remote port (only used in gate mode)", remote_port},
 		{"config", "load a config file (it will disable all options above)", config},
-		{"verbose,v", "enable verbose output (default: disable)"}
+		{"verbose,v", "enable verbose output (default: disable)"},
+		{"daemon,d", "run as daemon"}
 	});
 
 	if (!res.error.empty()) {
@@ -214,6 +215,16 @@ int bootstrap(int argc, char* argv[]) {
 	if (res.opts.count("help") > 0) {
 		std::cout << res.helptext << std::endl;
 		return 0;
+	}
+
+	if (res.opts.count("daemon") > 0) {
+		auto pid = fork();
+		if (pid > 0) {
+			return 0;
+		} else if (pid < 0) {
+			std::cout << "ERROR: Failed in calling fork()" << std::endl;
+			return 1;
+		}
 	}
 
 	int ret = 0;
