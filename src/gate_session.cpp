@@ -17,8 +17,6 @@
 #include "common.hpp"
 #include "gate_session.hpp"
 #include "connect_helper.hpp"
-#include <algorithm>
-#include <iterator>
 
 namespace ranger { namespace proxy {
 
@@ -46,7 +44,7 @@ void gate_state::init(connection_handle hdl, const std::string& host, uint16_t p
 void gate_state::handle_new_data(const new_data_msg& msg) {
 	if (msg.handle == m_local_hdl) {
 		if (m_remote_hdl.invalid()) {
-			std::copy(msg.buf.begin(), msg.buf.end(), std::back_inserter(m_buf));
+			m_buf.insert(m_buf.end(), msg.buf.begin(), msg.buf.end());
 		} else {
 			if (m_encryptor) {
 				m_self->send(m_encryptor, encrypt_atom::value, msg.buf);
@@ -98,7 +96,7 @@ void gate_state::handle_connect_succ(connection_handle hdl) {
 			if (wr_buf.empty()) {
 				wr_buf = std::move(m_buf);
 			} else {
-				std::copy(m_buf.begin(), m_buf.end(), std::back_inserter(wr_buf));
+				wr_buf.insert(wr_buf.end(), m_buf.begin(), m_buf.end());
 				m_buf.clear();
 			}
 			m_self->flush(m_remote_hdl);

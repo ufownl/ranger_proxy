@@ -14,12 +14,16 @@ ranger_proxy --help
 Allowed options:
   -H [--host] arg    : set host
   -p [--port] arg    : set port (default: 1080)
-  --password arg     : set password (default: empty)
+  --username arg     : set username (it will enable username auth method)
+  --password arg     : set password
+  -k [--key] arg     : set key (default: empty)
+  -z [--zlib]        : enable zlib compression (default: disable)
   -G [--gate]        : run in gate mode
   --remote_host arg  : set remote host (only used in gate mode)
   --remote_port arg  : set remote port (only used in gate mode)
   --config arg       : load a config file (it will disable all options above)
   -v [--verbose]     : enable verbose output (default: disable)
+  -d [--daemon]      : run as daemon
   -h [-?,--help]     : print this text
 ```
 
@@ -40,6 +44,7 @@ make install
   * Clang >= 3.2
 * [CMake](http://www.cmake.org)
 * [C++ Actor Framework](https://github.com/actor-framework/actor-framework) (develop分支)
+* [Zlib](http://www.zlib.net)
 * [OpenSSL](http://www.openssl.org)
 
 ## SOCKS5特性支持
@@ -48,7 +53,7 @@ make install
 ### 验证方法
 - [x] NO AUTHENTICATION REQUIRED
 - [ ] GSSAPI
-- [ ] USERNAME/PASSWORD
+- [x] USERNAME/PASSWORD
 
 ### 请求类型
 - [x] CONNECT

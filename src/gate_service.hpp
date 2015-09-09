@@ -20,7 +20,7 @@
 #include <string>
 #include <vector>
 #include <utility>
-#include <stdlib.h>
+#include <random>
 
 namespace ranger { namespace proxy {
 
@@ -32,7 +32,7 @@ using gate_service =
 		replies_to<publish_atom, std::string, uint16_t>
 			::with_either<ok_atom, uint16_t>
 			::or_else<error_atom, std::string>,
-		reacts_to<add_atom, std::string, uint16_t, std::vector<uint8_t>, std::vector<uint8_t>>
+		reacts_to<add_atom, std::string, uint16_t, std::vector<uint8_t>, std::vector<uint8_t>, bool>
 	>;
 
 class gate_service_state {
@@ -42,6 +42,7 @@ public:
 		uint16_t port;
 		std::vector<uint8_t> key;
 		std::vector<uint8_t> ivec;
+		bool zlib;
 	};
 
 	gate_service_state() = default;
@@ -53,8 +54,9 @@ public:
 	host_info query_host();
 
 private:
+	std::unique_ptr<std::mt19937> m_rand_engine;
+	std::unique_ptr<std::uniform_int_distribution<size_t>> m_dist;
 	std::vector<host_info> m_hosts;
-	size_t m_index {static_cast<size_t>(rand())};
 };
 
 gate_service::behavior_type
