@@ -18,9 +18,7 @@
 #define RANGER_PROXY_ZLIB_ENCRYPTOR_HPP
 
 #include "encryptor.hpp"
-#include "unpacker.hpp"
 #include <vector>
-#include <queue>
 #include <zlib.h>
 
 namespace ranger { namespace proxy {
@@ -41,22 +39,17 @@ public:
 
 	void init(const encryptor& enc);
 
-	encrypt_promise_type encrypt(const std::vector<char>& in) const;
+	encrypt_promise_type encrypt(const std::vector<char>& in);
 	decrypt_promise_type decrypt(const std::vector<char>& in);
 
 private:
-	struct data_header {
-		uint16_t compressed_len;
-		uint16_t origin_len;
-	};
-
-	bool handle_unpacked_data(std::vector<char> buf);
+	std::vector<char> compress(const std::vector<char>& in);
+	std::vector<char> uncompress(const std::vector<char>& in);
 
 	encryptor::pointer m_self;
 	encryptor m_encryptor;
-	unpacker<uint16_t> m_unpacker;
-	uint16_t m_origin_len {0};
-	std::vector<char> m_origin_buf;
+	z_stream m_deflate_strm;
+	z_stream m_inflate_strm;
 };
 
 encryptor::behavior_type
