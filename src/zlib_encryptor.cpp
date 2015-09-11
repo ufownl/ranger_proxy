@@ -16,20 +16,14 @@
 
 #include "common.hpp"
 #include "zlib_encryptor.hpp"
+#include <stdexcept>
+#include <new>
 
 namespace ranger { namespace proxy {
 
 zlib_state::zlib_state(encryptor::pointer self)
 	: m_self(self) {
-	m_deflate_strm.zalloc = Z_NULL;
-	m_deflate_strm.zfree = Z_NULL;
-	m_deflate_strm.opaque = Z_NULL;
-	deflateInit(&m_deflate_strm, Z_BEST_COMPRESSION);
-
-	m_inflate_strm.zalloc = Z_NULL;
-	m_inflate_strm.zfree = Z_NULL;
-	m_inflate_strm.opaque = Z_NULL;
-	inflateInit(&m_inflate_strm);
+	// nop
 }
 
 zlib_state::~zlib_state() {
@@ -43,6 +37,22 @@ zlib_state::~zlib_state() {
 
 void zlib_state::init(const encryptor& enc) {
 	m_encryptor = enc;
+	
+	auto err_code = deflateInit(&m_deflate_strm, Z_BEST_COMPRESSION);
+	if (err_code == Z_MEM_ERROR) {
+		throw std::bad_alloc();
+	} else if (err_code != Z_OK) {
+		aout(m_self) << "ERROR: " << m_deflate_strm.msg << std::endl;
+		throw std::runtime_error(m_deflate_strm.msg);
+	}
+
+	err_code = inflateInit(&m_inflate_strm);
+	if (err_code == Z_MEM_ERROR) {
+		throw std::bad_alloc();
+	} else if (err_code != Z_OK) {
+		aout(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
+		throw std::runtime_error(m_inflate_strm.msg);
+	}
 }
 
 zlib_state::encrypt_promise_type zlib_state::encrypt(const std::vector<char>& in) {
@@ -103,7 +113,14 @@ std::vector<char> zlib_state::uncompress(const std::vector<char>& in) {
 		Bytef buf[8192];
 		m_inflate_strm.next_out = buf;
 		m_inflate_strm.avail_out = sizeof(buf);
-		inflate(&m_inflate_strm, Z_NO_FLUSH);
+		auto err = inflate(&m_inflate_strm, Z_NO_FLUSH);
+		if (err == Z_MEM_ERROR) {
+			throw std::bad_alloc();
+		} else if (err == Z_NEED_DICT || err == Z_DATA_ERROR) {
+			aout(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
+			break;
+		}
+
 		size_t len = sizeof(buf) - m_inflate_strm.avail_out;
 		if (len > 0) {
 			out.insert(out.end(), buf, buf + len);

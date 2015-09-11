@@ -48,8 +48,8 @@ private:
 
 	encryptor::pointer m_self;
 	encryptor m_encryptor;
-	z_stream m_deflate_strm;
-	z_stream m_inflate_strm;
+	z_stream m_deflate_strm {0};
+	z_stream m_inflate_strm {0};
 };
 
 encryptor::behavior_type
