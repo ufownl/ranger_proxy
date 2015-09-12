@@ -35,7 +35,7 @@ using socks5_service =
 			::with_either<ok_atom, uint16_t>
 			::or_else<error_atom, std::string>,
 		replies_to<add_atom, std::string, std::string>::with<bool, std::string>,
-		reacts_to<encrypt_atom, std::vector<uint8_t>, std::vector<uint8_t>>,
+		reacts_to<encrypt_atom, std::vector<uint8_t>, int>,
 		reacts_to<zlib_atom, bool>
 	>;
 
@@ -49,8 +49,7 @@ public:
 	void set_user_table(const user_table& tbl);
 	const user_table& get_user_table() const;
 
-	void set_key(const std::vector<uint8_t>& key);
-	void set_ivec(const std::vector<uint8_t>& ivec);
+	void set_encryptor(const std::vector<uint8_t>& key, int period);
 	void set_zlib(bool zlib);
 
 	encryptor spawn_encryptor() const;
@@ -58,7 +57,7 @@ public:
 private:
 	user_table m_user_tbl;
 	std::vector<uint8_t> m_key;
-	std::vector<uint8_t> m_ivec;
+	int m_period {0};
 	bool m_zlib {false};
 };
 
