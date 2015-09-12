@@ -79,8 +79,7 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 			int period = 0;
 			node = j->first_node("period");
 			if (node) {
-				char* end;
-				period = strtoul(node->value(), &end, 10);
+				period = atoi(node->value());
 			}
 
 			bool zlib = false;
@@ -144,8 +143,7 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 		int period = 0;
 		node = root->first_node("period");
 		if (node) {
-			char* end;
-			period = strtoul(node->value(), &end, 10);
+			period = atoi(node->value());
 		}
 
 		self->send(serv, encrypt_atom::value, key, period);

@@ -48,10 +48,9 @@ encryptor socks5_service_state::spawn_encryptor() const {
 		if (m_period > 0) {
 			auto now = time(nullptr);
 			std::mt19937 gen(now / m_period);
-			std::uniform_int_distribution<uint8_t> dist;
 			ivec.resize(128 / 8);
 			for (auto& val: ivec) {
-				val = dist(gen);
+				val = gen();
 			}
 		}
 		enc = spawn(aes_cfb128_encryptor_impl, m_key, ivec);
