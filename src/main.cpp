@@ -76,14 +76,20 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 							node->value() + strlen(node->value()));
 			}
 
+			int period = 0;
+			node = j->first_node("period");
+			if (node) {
+				char* end;
+				period = strtoul(node->value(), &end, 10);
+			}
+
 			bool zlib = false;
 			node = j->first_node("zlib");
 			if (node && atoi(node->value())) {
 				zlib = true;
 			}
 
-			std::vector<uint8_t> ivec;
-			self->send(serv, add_atom::value, remote_addr, remote_port, key, ivec, zlib);
+			self->send(serv, add_atom::value, remote_addr, remote_port, key, period, zlib);
 		}
 
 		auto ok_hdl = [] (ok_atom, uint16_t) {
@@ -135,8 +141,14 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 						node->value() + strlen(node->value()));
 		}
 
-		std::vector<uint8_t> ivec;
-		self->send(serv, encrypt_atom::value, key, ivec);
+		int period = 0;
+		node = root->first_node("period");
+		if (node) {
+			char* end;
+			period = strtoul(node->value(), &end, 10);
+		}
+
+		self->send(serv, encrypt_atom::value, key, period);
 
 		node = root->first_node("zlib");
 		if (node && atoi(node->value())) {
@@ -188,6 +200,7 @@ int bootstrap(int argc, char* argv[]) {
 	std::string username;
 	std::string password;
 	std::string key_src;
+	int period = 0;
 	std::string remote_host;
 	uint16_t remote_port = 0;
 	std::string config;
@@ -198,6 +211,7 @@ int bootstrap(int argc, char* argv[]) {
 		{"username", "set username (it will enable username auth method)", username},
 		{"password", "set password", password},
 		{"key,k", "set key (default: empty)", key_src},
+		{"period", "set initial vector update period (default: 0)", period},
 		{"zlib,z", "enable zlib compression (default: disable)"},
 		{"gate,G", "run in gate mode"},
 		{"remote_host", "set remote host (only used in gate mode)", remote_host},
@@ -235,9 +249,8 @@ int bootstrap(int argc, char* argv[]) {
 		scoped_actor self;
 		auto serv = spawn_io(gate_service_impl);
 		std::vector<uint8_t> key(key_src.begin(), key_src.end());
-		std::vector<uint8_t> ivec;
 		self->send(	serv, add_atom::value, remote_host, remote_port,
-					key, ivec, res.opts.count("zlib") > 0);
+					key, period, res.opts.count("zlib") > 0);
 		auto ok_hdl = [] (ok_atom, uint16_t) {
 			std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
 		};
@@ -269,8 +282,7 @@ int bootstrap(int argc, char* argv[]) {
 			);
 		}
 		std::vector<uint8_t> key(key_src.begin(), key_src.end());
-		std::vector<uint8_t> ivec;
-		self->send(serv, encrypt_atom::value, key, ivec);
+		self->send(serv, encrypt_atom::value, key, period);
 		self->send(serv, zlib_atom::value, res.opts.count("zlib") > 0);
 		auto ok_hdl = [] (ok_atom, uint16_t) {
 			std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;

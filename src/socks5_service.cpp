@@ -19,6 +19,8 @@
 #include "socks5_session.hpp"
 #include "aes_cfb128_encryptor.hpp"
 #include "zlib_encryptor.hpp"
+#include <random>
+#include <time.h>
 
 namespace ranger { namespace proxy {
 
@@ -30,12 +32,9 @@ const user_table& socks5_service_state::get_user_table() const {
 	return m_user_tbl;
 }
 
-void socks5_service_state::set_key(const std::vector<uint8_t>& key) {
+void socks5_service_state::set_encryptor(const std::vector<uint8_t>& key, int period) {
 	m_key = key;
-}
-
-void socks5_service_state::set_ivec(const std::vector<uint8_t>& ivec) {
-	m_ivec = ivec;
+	m_period = period;
 }
 
 void socks5_service_state::set_zlib(bool zlib) {
@@ -44,8 +43,18 @@ void socks5_service_state::set_zlib(bool zlib) {
 
 encryptor socks5_service_state::spawn_encryptor() const {
 	encryptor enc;
-	if (!m_key.empty() || !m_ivec.empty()) {
-		enc = spawn(aes_cfb128_encryptor_impl, m_key, m_ivec);
+	if (!m_key.empty()) {
+		std::vector<uint8_t> ivec;
+		if (m_period > 0) {
+			auto now = time(nullptr);
+			std::mt19937 gen(now / m_period);
+			std::uniform_int_distribution<uint8_t> dist;
+			ivec.resize(128 / 8);
+			for (auto& val: ivec) {
+				val = dist(gen);
+			}
+		}
+		enc = spawn(aes_cfb128_encryptor_impl, m_key, ivec);
 	}
 	if (m_zlib) {
 		enc = spawn(zlib_encryptor_impl, enc);
@@ -98,9 +107,8 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
 
 			return self->delegate(tbl, add_atom::value, username, password);
 		},
-		[self] (encrypt_atom, const std::vector<uint8_t>& key, const std::vector<uint8_t>& ivec) {
-			self->state.set_key(key);
-			self->state.set_ivec(ivec);
+		[self] (encrypt_atom, const std::vector<uint8_t>& key, int period) {
+			self->state.set_encryptor(key, period);
 		},
 		[self] (zlib_atom, bool zlib) {
 			self->state.set_zlib(zlib);

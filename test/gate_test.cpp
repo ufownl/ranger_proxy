@@ -33,9 +33,8 @@ TEST_F(echo_test, gate_echo) {
 	uint16_t port = 0;
 	{
 		std::vector<uint8_t> key;
-		std::vector<uint8_t> ivec;
 		caf::scoped_actor self;
-		self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, ivec, false);
+		self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, 60, false);
 		self->sync_send(gate, caf::publish_atom::value, port).await(
 			[&port] (caf::ok_atom, uint16_t gate_port) {
 				port = gate_port;
@@ -74,9 +73,8 @@ TEST_F(echo_test, encrypted_gate_echo) {
 	{
 		std::string str = "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF";
 		std::vector<uint8_t> key(str.begin(), str.end());
-		std::vector<uint8_t> ivec;
 		caf::scoped_actor self;
-		self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, ivec, false);
+		self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, 60, false);
 		self->sync_send(gate, caf::publish_atom::value, port).await(
 			[&port] (caf::ok_atom, uint16_t gate_port) {
 				port = gate_port;
@@ -114,9 +112,8 @@ TEST_F(echo_test, gate_chain_echo) {
 	uint16_t port = 0;
 	{
 		std::vector<uint8_t> key;
-		std::vector<uint8_t> ivec;
 		caf::scoped_actor self;
-		self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, ivec, false);
+		self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, 60, false);
 		self->sync_send(gate, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
 			[&port] (caf::ok_atom, uint16_t gate_port) {
 				port = gate_port;
@@ -135,9 +132,8 @@ TEST_F(echo_test, gate_chain_echo) {
 
 	{
 		std::vector<uint8_t> key;
-		std::vector<uint8_t> ivec;
 		caf::scoped_actor self;
-		self->send(gate2, caf::add_atom::value, "127.0.0.1", port, key, ivec, false);
+		self->send(gate2, caf::add_atom::value, "127.0.0.1", port, key, 60, false);
 		self->sync_send(gate2, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
 			[&port] (caf::ok_atom, uint16_t gate_port) {
 				port = gate_port;
@@ -175,9 +171,8 @@ TEST_F(ranger_proxy_test, gate_null) {
 	uint16_t port = 0;
 	{
 		std::vector<uint8_t> key;
-		std::vector<uint8_t> ivec;
 		caf::scoped_actor self;
-		self->send(gate, caf::add_atom::value, "127.0.0.1", static_cast<uint16_t>(0x7FFF), key, ivec, false);
+		self->send(gate, caf::add_atom::value, "127.0.0.1", static_cast<uint16_t>(0x7FFF), key, 60, false);
 		self->sync_send(gate, caf::publish_atom::value, port).await(
 			[&port] (caf::ok_atom, uint16_t gate_port) {
 				port = gate_port;
