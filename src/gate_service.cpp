@@ -56,10 +56,9 @@ gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self
 					if (host.period > 0) {
 						auto now = time(nullptr);
 						std::mt19937 gen(now / host.period);
-						std::uniform_int_distribution<uint8_t> dist;
 						ivec.resize(128 / 8);
 						for (auto& val: ivec) {
-							val = dist(gen);
+							val = gen();
 						}
 					}
 					enc = spawn(aes_cfb128_encryptor_impl, host.key, ivec);
