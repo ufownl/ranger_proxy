@@ -57,7 +57,7 @@ private:
 
 		while (m_expected_len > 0 && m_current_len - m_offset >= m_expected_len) {
 			std::vector<char> expected_buf;
-			while (m_expected_len > 0) {
+			do {
 				if (m_offset + m_expected_len < m_buffers.front().size()) {
 					expected_buf.insert(expected_buf.end(),
 										m_buffers.front().begin() + m_offset,
@@ -73,7 +73,7 @@ private:
 					m_offset = 0;
 					m_buffers.pop();
 				}
-			}
+			} while (m_expected_len > 0);
 
 			if (!m_expected_handler(std::move(expected_buf))) {
 				break;

@@ -16,7 +16,8 @@
 
 #include "common.hpp"
 #include "zlib_encryptor.hpp"
-#include <string.h>
+#include <stdexcept>
+#include <new>
 
 namespace ranger { namespace proxy {
 
@@ -29,55 +30,41 @@ zlib_state::~zlib_state() {
 	if (m_encryptor) {
 		anon_send_exit(m_encryptor, exit_reason::user_shutdown);
 	}
+
+	deflateEnd(&m_deflate_strm);
+	inflateEnd(&m_inflate_strm);
 }
 
 void zlib_state::init(const encryptor& enc) {
 	m_encryptor = enc;
-	m_unpacker.expect(sizeof(data_header), [this] (std::vector<char> buf) {
-		return handle_unpacked_data(std::move(buf));
-	});
+	
+	auto err_code = deflateInit(&m_deflate_strm, Z_BEST_COMPRESSION);
+	if (err_code == Z_MEM_ERROR) {
+		throw std::bad_alloc();
+	} else if (err_code != Z_OK) {
+		aout(m_self) << "ERROR: " << m_deflate_strm.msg << std::endl;
+		throw std::runtime_error(m_deflate_strm.msg);
+	}
+
+	err_code = inflateInit(&m_inflate_strm);
+	if (err_code == Z_MEM_ERROR) {
+		throw std::bad_alloc();
+	} else if (err_code != Z_OK) {
+		aout(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
+		throw std::runtime_error(m_inflate_strm.msg);
+	}
 }
 
-zlib_state::encrypt_promise_type zlib_state::encrypt(const std::vector<char>& in) const {
-	auto dest_len = compressBound(in.size());
-	std::vector<char> out(dest_len + sizeof(data_header));
-	auto res = compress2(	reinterpret_cast<Bytef*>(out.data() + sizeof(data_header)), &dest_len,
-							reinterpret_cast<const Bytef*>(in.data()), in.size(), Z_BEST_COMPRESSION);
-	switch (res) {
-	case Z_MEM_ERROR:
-		aout(m_self) << "ERROR: [Zlib] There was not enough memory" << std::endl;
-		return {};
-	case Z_BUF_ERROR:
-		aout(m_self) << "ERROR: [Zlib] There was not enough room in the output buffer" << std::endl;
-		return {};
-	}
-
-	if (dest_len < in.size()) {
-		out.resize(dest_len + sizeof(data_header));
-
-		data_header header;
-		header.compressed_len = dest_len;
-		header.origin_len = in.size();
-		memcpy(out.data(), &header, sizeof(header));
-	} else {
-		out.resize(in.size() + sizeof(data_header));
-
-		data_header header;
-		header.compressed_len = in.size();
-		header.origin_len = in.size();
-		memcpy(out.data(), &header, sizeof(header));
-		memcpy(out.data() + sizeof(header), in.data(), in.size());
-	}
-
+zlib_state::encrypt_promise_type zlib_state::encrypt(const std::vector<char>& in) {
 	encrypt_promise_type promise = m_self->make_response_promise();
 	if (m_encryptor) {
-		m_self->sync_send(m_encryptor, encrypt_atom::value, out).then(
+		m_self->sync_send(m_encryptor, encrypt_atom::value, compress(in)).then(
 			[promise] (encrypt_atom, const std::vector<char>& buf) {
 				promise.deliver(encrypt_atom::value, buf);
 			}
 		);
 	} else {
-		promise.deliver(encrypt_atom::value, std::move(out));
+		promise.deliver(encrypt_atom::value, compress(in));
 	}
 
 	return promise;
@@ -88,56 +75,59 @@ zlib_state::decrypt_promise_type zlib_state::decrypt(const std::vector<char>& in
 	if (m_encryptor) {
 		m_self->sync_send(m_encryptor, decrypt_atom::value, in).then(
 			[this, promise] (decrypt_atom, const std::vector<char>& buf) {
-				m_unpacker.append(buf);
-				promise.deliver(decrypt_atom::value, std::move(m_origin_buf));
+				promise.deliver(decrypt_atom::value, uncompress(buf));
 			}
 		);
 	} else {
-		m_unpacker.append(in);
-		promise.deliver(decrypt_atom::value, std::move(m_origin_buf));
+		promise.deliver(decrypt_atom::value, uncompress(in));
 	}
 
 	return promise;
 }
 
-bool zlib_state::handle_unpacked_data(std::vector<char> src_buf) {
-	if (m_origin_len == 0) {
-		const data_header* header = reinterpret_cast<data_header*>(src_buf.data());
-		m_origin_len = header->origin_len;
-		m_unpacker.expect(header->compressed_len, [this] (std::vector<char> buf) {
-			return handle_unpacked_data(std::move(buf));
-		});
-	} else {
-		if (src_buf.size() < m_origin_len) {
-			uLongf dst_len = m_origin_len;
-			std::vector<char> dst_buf(dst_len);
-			auto res = uncompress(	reinterpret_cast<Bytef*>(dst_buf.data()), &dst_len,
-									reinterpret_cast<const Bytef*>(src_buf.data()), src_buf.size());
-			switch (res) {
-			case Z_MEM_ERROR:
-				aout(m_self) << "ERROR: [Zlib] There was not enough memory" << std::endl;
-				return false;
-			case Z_BUF_ERROR:
-				aout(m_self) << "ERROR: [Zlib] There was not enough room in the output buffer" << std::endl;
-				return false;
-			case Z_DATA_ERROR:
-				aout(m_self) << "ERROR: [Zlib] The input data was corrupted or incomplete" << std::endl;
-				return false;
-			}
+std::vector<char> zlib_state::compress(const std::vector<char>& in) {
+	std::vector<char> out;
+	std::vector<Bytef> in_buf(in.begin(), in.end());
+	m_deflate_strm.next_in = in_buf.data();
+	m_deflate_strm.avail_in = in_buf.size();
+	do {
+		Bytef buf[8192];
+		m_deflate_strm.next_out = buf;
+		m_deflate_strm.avail_out = sizeof(buf);
+		deflate(&m_deflate_strm, Z_PARTIAL_FLUSH);
+		size_t len = sizeof(buf) - m_deflate_strm.avail_out;
+		if (len > 0) {
+			out.insert(out.end(), buf, buf + len);
+		}
+	} while (m_deflate_strm.avail_out == 0);
 
-			m_origin_buf.insert(m_origin_buf.end(), dst_buf.begin(), dst_buf.end());
-		} else {
-			m_origin_buf.insert(m_origin_buf.end(), src_buf.begin(), src_buf.end());
+	return out;
+}
+
+std::vector<char> zlib_state::uncompress(const std::vector<char>& in) {
+	std::vector<char> out;
+	std::vector<Bytef> in_buf(in.begin(), in.end());
+	m_inflate_strm.next_in = in_buf.data();
+	m_inflate_strm.avail_in = in_buf.size();
+	do {
+		Bytef buf[8192];
+		m_inflate_strm.next_out = buf;
+		m_inflate_strm.avail_out = sizeof(buf);
+		auto err = inflate(&m_inflate_strm, Z_NO_FLUSH);
+		if (err == Z_MEM_ERROR) {
+			throw std::bad_alloc();
+		} else if (err == Z_NEED_DICT || err == Z_DATA_ERROR) {
+			aout(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
+			break;
 		}
 
-		m_origin_len = 0;
+		size_t len = sizeof(buf) - m_inflate_strm.avail_out;
+		if (len > 0) {
+			out.insert(out.end(), buf, buf + len);
+		}
+	} while (m_inflate_strm.avail_out == 0);
 
-		m_unpacker.expect(sizeof(data_header), [this] (std::vector<char> buf) {
-			return handle_unpacked_data(std::move(buf));
-		});
-	}
-
-	return true;
+	return out;
 }
 
 encryptor::behavior_type
