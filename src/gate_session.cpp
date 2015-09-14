@@ -17,6 +17,8 @@
 #include "common.hpp"
 #include "gate_session.hpp"
 #include "connect_helper.hpp"
+#include "aes_cfb128_encryptor.hpp"
+#include "zlib_encryptor.hpp"
 
 namespace ranger { namespace proxy {
 
@@ -31,11 +33,13 @@ gate_state::~gate_state() {
 	}
 }
 
-void gate_state::init(connection_handle hdl, const std::string& host, uint16_t port, encryptor enc) {
+void gate_state::init(	connection_handle hdl, const std::string& host, uint16_t port,
+						const std::vector<uint8_t>& key, bool zlib) {
 	m_local_hdl = hdl;
 	m_self->configure_read(m_local_hdl, receive_policy::at_most(8192));
 
-	m_encryptor = enc;
+	m_key = key;
+	m_zlib = zlib;
 
 	auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
 	m_self->send(helper, connect_atom::value, host, port);
@@ -46,16 +50,24 @@ void gate_state::handle_new_data(const new_data_msg& msg) {
 		if (m_remote_hdl.invalid()) {
 			m_buf.insert(m_buf.end(), msg.buf.begin(), msg.buf.end());
 		} else {
-			if (m_encryptor) {
-				m_self->send(m_encryptor, encrypt_atom::value, msg.buf);
+			if (!m_key.empty()) {
+				if (m_encryptor) {
+					m_self->send(m_encryptor, encrypt_atom::value, msg.buf);
+				} else {
+					m_buf.insert(m_buf.end(), msg.buf.begin(), msg.buf.end());
+				}
 			} else if (m_self->valid(m_remote_hdl)) {
 				m_self->write(m_remote_hdl, msg.buf.size(), msg.buf.data());
 				m_self->flush(m_remote_hdl);
 			}
 		}
 	} else {
-		if (m_encryptor) {
-			m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
+		if (!m_key.empty()) {
+			if (m_encryptor) {
+				m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
+			} else {
+				m_unpacker.append(msg.buf);
+			}
 		} else {
 			m_self->write(m_local_hdl, msg.buf.size(), msg.buf.data());
 			m_self->flush(m_local_hdl);
@@ -88,19 +100,45 @@ void gate_state::handle_connect_succ(connection_handle hdl) {
 	m_remote_hdl = hdl;
 	m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
 
-	if (!m_buf.empty()) {
-		if (m_encryptor) {
-			m_self->send(m_encryptor, encrypt_atom::value, std::move(m_buf));
-		} else {
-			auto& wr_buf = m_self->wr_buf(m_remote_hdl);
-			if (wr_buf.empty()) {
-				wr_buf = std::move(m_buf);
-			} else {
-				wr_buf.insert(wr_buf.end(), m_buf.begin(), m_buf.end());
-				m_buf.clear();
-			}
-			m_self->flush(m_remote_hdl);
+	if (m_key.empty()) {
+		if (m_zlib) {
+			m_encryptor = spawn(zlib_encryptor_impl, m_encryptor);
 		}
+
+		if (!m_buf.empty()) {
+			if (m_encryptor) {
+				m_self->send(m_encryptor, encrypt_atom::value, std::move(m_buf));
+			} else {
+				auto& wr_buf = m_self->wr_buf(m_remote_hdl);
+				if (wr_buf.empty()) {
+					wr_buf = std::move(m_buf);
+				} else {
+					wr_buf.insert(wr_buf.end(), m_buf.begin(), m_buf.end());
+					m_buf.clear();
+				}
+				m_self->flush(m_remote_hdl);
+			}
+		}
+	} else {
+		m_unpacker.expect(4, [this] (std::vector<char> buf) {
+			auto seed = *reinterpret_cast<uint32_t*>(buf.data());
+			std::mt19937 mt(seed);
+			std::vector<uint8_t> ivec(128 / 8);
+			for (auto& val: ivec) {
+				val = mt();
+			}
+			m_encryptor = spawn(aes_cfb128_encryptor_impl, m_key, ivec);
+
+			if (m_zlib) {
+				m_encryptor = spawn(zlib_encryptor_impl, m_encryptor);
+			}
+
+			if (!m_buf.empty()) {
+				m_self->send(m_encryptor, encrypt_atom::value, std::move(m_buf));
+			}
+
+			return true;
+		});
 	}
 }
 
@@ -110,9 +148,9 @@ void gate_state::handle_connect_fail(const std::string& what) {
 }
 
 gate_session::behavior_type
-gate_session_impl(	gate_session::stateful_broker_pointer<gate_state> self,
-					connection_handle hdl, const std::string& host, uint16_t port, encryptor enc) {
-	self->state.init(hdl, host, port, enc);
+gate_session_impl(	gate_session::stateful_broker_pointer<gate_state> self, connection_handle hdl,
+					const std::string& host, uint16_t port, const std::vector<uint8_t>& key, bool zlib) {
+	self->state.init(hdl, host, port, key, zlib);
 	return {
 		[self] (const new_data_msg& msg) {
 			self->state.handle_new_data(msg);

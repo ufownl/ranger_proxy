@@ -34,47 +34,7 @@ TEST_F(echo_test, gate_echo) {
 	{
 		std::vector<uint8_t> key;
 		caf::scoped_actor self;
-		self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, 60, false);
-		self->sync_send(gate, caf::publish_atom::value, port).await(
-			[&port] (caf::ok_atom, uint16_t gate_port) {
-				port = gate_port;
-			},
-			[] (caf::error_atom, const std::string& what) {
-				std::cout << "ERROR: " << what << std::endl;
-			}
-		);
-	}
-	ASSERT_NE(0, port);
-
-	int fd = socket(AF_INET, SOCK_STREAM, 0);
-	ASSERT_NE(-1, fd);
-	scope_guard guard_fd([fd] { close(fd); });
-
-	sockaddr_in sin;
-	sin.sin_family = AF_INET;
-	sin.sin_addr.s_addr = inet_addr("127.0.0.1");
-	sin.sin_port = htons(port);
-	ASSERT_EQ(0, connect(fd, reinterpret_cast<sockaddr*>(&sin), sizeof(sin)));
-
-	char buf[] = "Hello, world!";
-	send(fd, buf, sizeof(buf), 0);
-	memset(buf, 0, sizeof(buf));
-	ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
-	EXPECT_STREQ("Hello, world!", buf);
-}
-
-TEST_F(echo_test, encrypted_gate_echo) {
-	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl);
-	scope_guard guard_gate([gate] {
-		caf::anon_send_exit(gate, caf::exit_reason::kill);
-	});
-
-	uint16_t port = 0;
-	{
-		std::string str = "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF";
-		std::vector<uint8_t> key(str.begin(), str.end());
-		caf::scoped_actor self;
-		self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, 60, false);
+		self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, false);
 		self->sync_send(gate, caf::publish_atom::value, port).await(
 			[&port] (caf::ok_atom, uint16_t gate_port) {
 				port = gate_port;
@@ -113,7 +73,7 @@ TEST_F(echo_test, gate_chain_echo) {
 	{
 		std::vector<uint8_t> key;
 		caf::scoped_actor self;
-		self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, 60, false);
+		self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, false);
 		self->sync_send(gate, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
 			[&port] (caf::ok_atom, uint16_t gate_port) {
 				port = gate_port;
@@ -133,7 +93,7 @@ TEST_F(echo_test, gate_chain_echo) {
 	{
 		std::vector<uint8_t> key;
 		caf::scoped_actor self;
-		self->send(gate2, caf::add_atom::value, "127.0.0.1", port, key, 60, false);
+		self->send(gate2, caf::add_atom::value, "127.0.0.1", port, key, false);
 		self->sync_send(gate2, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
 			[&port] (caf::ok_atom, uint16_t gate_port) {
 				port = gate_port;
@@ -172,7 +132,7 @@ TEST_F(ranger_proxy_test, gate_null) {
 	{
 		std::vector<uint8_t> key;
 		caf::scoped_actor self;
-		self->send(gate, caf::add_atom::value, "127.0.0.1", static_cast<uint16_t>(0x7FFF), key, 60, false);
+		self->send(gate, caf::add_atom::value, "127.0.0.1", static_cast<uint16_t>(0x7FFF), key, false);
 		self->sync_send(gate, caf::publish_atom::value, port).await(
 			[&port] (caf::ok_atom, uint16_t gate_port) {
 				port = gate_port;

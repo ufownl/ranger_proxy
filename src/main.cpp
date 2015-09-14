@@ -88,7 +88,7 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 				zlib = true;
 			}
 
-			self->send(serv, add_atom::value, remote_addr, remote_port, key, period, zlib);
+			self->send(serv, add_atom::value, remote_addr, remote_port, key, zlib);
 		}
 
 		auto ok_hdl = [] (ok_atom, uint16_t) {
@@ -242,7 +242,7 @@ int bootstrap(int argc, char* argv[]) {
 		auto serv = spawn_io(gate_service_impl);
 		std::vector<uint8_t> key(key_src.begin(), key_src.end());
 		self->send(	serv, add_atom::value, remote_host, remote_port,
-					key, period, res.opts.count("zlib") > 0);
+					key, res.opts.count("zlib") > 0);
 		auto ok_hdl = [] (ok_atom, uint16_t) {
 			std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
 		};
