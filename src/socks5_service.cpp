@@ -20,7 +20,6 @@
 #include "aes_cfb128_encryptor.hpp"
 #include "zlib_encryptor.hpp"
 #include <random>
-#include <time.h>
 
 namespace ranger { namespace proxy {
 
@@ -32,26 +31,25 @@ const user_table& socks5_service_state::get_user_table() const {
 	return m_user_tbl;
 }
 
-void socks5_service_state::set_encryptor(const std::vector<uint8_t>& key, int period) {
+void socks5_service_state::set_key(const std::vector<uint8_t>& key) {
 	m_key = key;
-	m_period = period;
+}
+
+const std::vector<uint8_t>& socks5_service_state::get_key() const {
+	return m_key;
 }
 
 void socks5_service_state::set_zlib(bool zlib) {
 	m_zlib = zlib;
 }
 
-encryptor socks5_service_state::spawn_encryptor() const {
+encryptor socks5_service_state::spawn_encryptor(uint32_t seed) const {
 	encryptor enc;
 	if (!m_key.empty()) {
-		std::vector<uint8_t> ivec;
-		if (m_period > 0) {
-			auto now = time(nullptr);
-			std::mt19937 gen(now / m_period);
-			ivec.resize(128 / 8);
-			for (auto& val: ivec) {
-				val = gen();
-			}
+		std::mt19937 mt(seed);
+		std::vector<uint8_t> ivec(128 / 8);
+		for (auto& val: ivec) {
+			val = mt();
 		}
 		enc = spawn(aes_cfb128_encryptor_impl, m_key, ivec);
 	}
@@ -63,12 +61,21 @@ encryptor socks5_service_state::spawn_encryptor() const {
 
 socks5_service::behavior_type
 socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self, bool verbose) {
+	std::random_device rd;
+	std::mt19937 mt(rd());
 	return {
-		[self, verbose] (const new_connection_msg& msg) {
+		[mt, self, verbose] (const new_connection_msg& msg) mutable {
+			uint32_t seed = 0;
+			if (!self->state.get_key().empty()) {
+				seed = mt();
+				self->write(msg.handle, sizeof(seed), &seed);
+				self->flush(msg.handle);
+			}
+
 			auto forked =
 				self->fork(	socks5_session_impl, msg.handle,
 							self->state.get_user_table(),
-							self->state.spawn_encryptor(),
+							self->state.spawn_encryptor(seed),
 							verbose);
 			self->link_to(forked);
 		},
@@ -106,8 +113,8 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
 
 			return self->delegate(tbl, add_atom::value, username, password);
 		},
-		[self] (encrypt_atom, const std::vector<uint8_t>& key, int period) {
-			self->state.set_encryptor(key, period);
+		[self] (encrypt_atom, const std::vector<uint8_t>& key) {
+			self->state.set_key(key);
 		},
 		[self] (zlib_atom, bool zlib) {
 			self->state.set_zlib(zlib);

@@ -140,13 +140,7 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 						node->value() + strlen(node->value()));
 		}
 
-		int period = 0;
-		node = root->first_node("period");
-		if (node) {
-			period = atoi(node->value());
-		}
-
-		self->send(serv, encrypt_atom::value, key, period);
+		self->send(serv, encrypt_atom::value, key);
 
 		node = root->first_node("zlib");
 		if (node && atoi(node->value())) {
@@ -280,7 +274,7 @@ int bootstrap(int argc, char* argv[]) {
 			);
 		}
 		std::vector<uint8_t> key(key_src.begin(), key_src.end());
-		self->send(serv, encrypt_atom::value, key, period);
+		self->send(serv, encrypt_atom::value, key);
 		self->send(serv, zlib_atom::value, res.opts.count("zlib") > 0);
 		auto ok_hdl = [] (ok_atom, uint16_t) {
 			std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
