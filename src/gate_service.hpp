@@ -32,7 +32,7 @@ using gate_service =
 		replies_to<publish_atom, std::string, uint16_t>
 			::with_either<ok_atom, uint16_t>
 			::or_else<error_atom, std::string>,
-		reacts_to<add_atom, std::string, uint16_t, std::vector<uint8_t>, int, bool>
+		reacts_to<add_atom, std::string, uint16_t, std::vector<uint8_t>, bool>
 	>;
 
 class gate_service_state {
@@ -41,7 +41,6 @@ public:
 		std::string addr;
 		uint16_t port;
 		std::vector<uint8_t> key;
-		int period;
 		bool zlib;
 	};
 
@@ -54,7 +53,7 @@ public:
 	host_info query_host();
 
 private:
-	std::unique_ptr<std::mt19937> m_rand_engine;
+	std::unique_ptr<std::minstd_rand> m_rand_engine;
 	std::unique_ptr<std::uniform_int_distribution<size_t>> m_dist;
 	std::vector<host_info> m_hosts;
 };

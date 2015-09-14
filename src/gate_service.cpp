@@ -17,9 +17,6 @@
 #include "common.hpp"
 #include "gate_service.hpp"
 #include "gate_session.hpp"
-#include "aes_cfb128_encryptor.hpp"
-#include "zlib_encryptor.hpp"
-#include <time.h>
 
 namespace ranger { namespace proxy {
 
@@ -36,7 +33,7 @@ gate_service_state::host_info gate_service_state::query_host() {
 
 	if (!m_dist) {
 		std::random_device rd;
-		m_rand_engine.reset(new std::mt19937(rd()));
+		m_rand_engine.reset(new std::minstd_rand(rd()));
 		m_dist.reset(new std::uniform_int_distribution<size_t>(0, m_hosts.size() - 1));
 	} else if (m_dist->max() != m_hosts.size() - 1) {
 		m_dist.reset(new std::uniform_int_distribution<size_t>(0, m_hosts.size() - 1));
@@ -51,23 +48,9 @@ gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self
 		[=] (const new_connection_msg& msg) {
 			auto host = self->state.query_host();
 			if (host.port != 0) {
-				encryptor enc;
-				if (!host.key.empty()) {
-					std::vector<uint8_t> ivec;
-					if (host.period > 0) {
-						auto now = time(nullptr);
-						std::mt19937 gen(now / host.period);
-						ivec.resize(128 / 8);
-						for (auto& val: ivec) {
-							val = gen();
-						}
-					}
-					enc = spawn(aes_cfb128_encryptor_impl, host.key, ivec);
-				}
-				if (host.zlib) {
-					enc = spawn(zlib_encryptor_impl, enc);
-				}
-				auto forked = self->fork(gate_session_impl, msg.handle, host.addr, host.port, enc);
+				auto forked =
+					self->fork(	gate_session_impl, msg.handle,
+								host.addr, host.port, host.key, host.zlib);
 				self->link_to(forked);
 			} else {
 				aout(self) << "ERROR: Hosts list is empty" << std::endl;
@@ -100,12 +83,11 @@ gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self
 			}
 		},
 		[=] (	add_atom, const std::string& addr, uint16_t port,
-				const std::vector<uint8_t>& key, int period, bool zlib) {
+				const std::vector<uint8_t>& key, bool zlib) {
 			gate_service_state::host_info host;
 			host.addr = addr;
 			host.port = port;
 			host.key = key;
-			host.period = period;
 			host.zlib = zlib;
 			self->state.add_host(std::move(host));
 		}
