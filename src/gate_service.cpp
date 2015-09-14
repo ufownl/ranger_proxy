@@ -33,7 +33,7 @@ gate_service_state::host_info gate_service_state::query_host() {
 
 	if (!m_dist) {
 		std::random_device rd;
-		m_rand_engine.reset(new std::mt19937(rd()));
+		m_rand_engine.reset(new std::minstd_rand(rd()));
 		m_dist.reset(new std::uniform_int_distribution<size_t>(0, m_hosts.size() - 1));
 	} else if (m_dist->max() != m_hosts.size() - 1) {
 		m_dist.reset(new std::uniform_int_distribution<size_t>(0, m_hosts.size() - 1));

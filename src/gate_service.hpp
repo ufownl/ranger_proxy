@@ -53,7 +53,7 @@ public:
 	host_info query_host();
 
 private:
-	std::unique_ptr<std::mt19937> m_rand_engine;
+	std::unique_ptr<std::minstd_rand> m_rand_engine;
 	std::unique_ptr<std::uniform_int_distribution<size_t>> m_dist;
 	std::vector<host_info> m_hosts;
 };

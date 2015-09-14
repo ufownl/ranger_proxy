@@ -46,10 +46,11 @@ void socks5_service_state::set_zlib(bool zlib) {
 encryptor socks5_service_state::spawn_encryptor(uint32_t seed) const {
 	encryptor enc;
 	if (!m_key.empty()) {
-		std::mt19937 mt(seed);
+		std::minstd_rand rd(seed);
 		std::vector<uint8_t> ivec(128 / 8);
-		for (auto& val: ivec) {
-			val = mt();
+		auto data = reinterpret_cast<uint32_t*>(ivec.data());
+		for (auto i = 0; i < 4; ++i) {
+			data[i] = rd();
 		}
 		enc = spawn(aes_cfb128_encryptor_impl, m_key, ivec);
 	}
@@ -61,13 +62,13 @@ encryptor socks5_service_state::spawn_encryptor(uint32_t seed) const {
 
 socks5_service::behavior_type
 socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self, bool verbose) {
-	std::random_device rd;
-	std::mt19937 mt(rd());
+	std::random_device dev;
+	std::minstd_rand rd(dev());
 	return {
-		[mt, self, verbose] (const new_connection_msg& msg) mutable {
+		[rd, self, verbose] (const new_connection_msg& msg) mutable {
 			uint32_t seed = 0;
 			if (!self->state.get_key().empty()) {
-				seed = mt();
+				seed = rd();
 				if (verbose) {
 					aout(self) << "INFO: Initialization vector seed[" << seed << "]" << std::endl;
 				}

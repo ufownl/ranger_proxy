@@ -122,10 +122,11 @@ void gate_state::handle_connect_succ(connection_handle hdl) {
 	} else {
 		m_unpacker.expect(4, [this] (std::vector<char> buf) {
 			auto seed = *reinterpret_cast<uint32_t*>(buf.data());
-			std::mt19937 mt(seed);
+			std::minstd_rand rd(seed);
 			std::vector<uint8_t> ivec(128 / 8);
-			for (auto& val: ivec) {
-				val = mt();
+			auto data = reinterpret_cast<uint32_t*>(ivec.data());
+			for (auto i = 0; i < 4; ++i) {
+				data[i] = rd();
 			}
 			m_encryptor = spawn(aes_cfb128_encryptor_impl, m_key, ivec);
 
