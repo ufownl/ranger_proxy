@@ -17,7 +17,6 @@ Allowed options:
   --username arg     : set username (it will enable username auth method)
   --password arg     : set password
   -k [--key] arg     : set key (default: empty)
-  --period arg       : set initial vector update period (default: 0)
   -z [--zlib]        : enable zlib compression (default: disable)
   -G [--gate]        : run in gate mode
   --remote_host arg  : set remote host (only used in gate mode)
