@@ -68,6 +68,10 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
 			uint32_t seed = 0;
 			if (!self->state.get_key().empty()) {
 				seed = mt();
+				if (verbose) {
+					aout(self) << "INFO: Initialization vector seed[" << seed << "]" << std::endl;
+				}
+
 				self->write(msg.handle, sizeof(seed), &seed);
 				self->flush(msg.handle);
 			}
