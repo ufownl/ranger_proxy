@@ -76,12 +76,6 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 							node->value() + strlen(node->value()));
 			}
 
-			int period = 0;
-			node = j->first_node("period");
-			if (node) {
-				period = atoi(node->value());
-			}
-
 			bool zlib = false;
 			node = j->first_node("zlib");
 			if (node && atoi(node->value())) {
@@ -192,7 +186,6 @@ int bootstrap(int argc, char* argv[]) {
 	std::string username;
 	std::string password;
 	std::string key_src;
-	int period = 0;
 	std::string remote_host;
 	uint16_t remote_port = 0;
 	std::string config;
@@ -203,7 +196,6 @@ int bootstrap(int argc, char* argv[]) {
 		{"username", "set username (it will enable username auth method)", username},
 		{"password", "set password", password},
 		{"key,k", "set key (default: empty)", key_src},
-		{"period", "set initial vector update period (default: 0)", period},
 		{"zlib,z", "enable zlib compression (default: disable)"},
 		{"gate,G", "run in gate mode"},
 		{"remote_host", "set remote host (only used in gate mode)", remote_host},
