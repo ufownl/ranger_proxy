@@ -43,14 +43,14 @@ gate_service_state::host_info gate_service_state::query_host() {
 }
 
 gate_service::behavior_type
-gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self) {
+gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self, int timeout) {
 	return {
 		[=] (const new_connection_msg& msg) {
 			auto host = self->state.query_host();
 			if (host.port != 0) {
 				auto forked =
-					self->fork(	gate_session_impl, msg.handle,
-								host.addr, host.port, host.key, host.zlib);
+					self->fork(	gate_session_impl, msg.handle, host.addr, host.port,
+								host.key, host.zlib, timeout);
 				self->link_to(forked);
 			} else {
 				aout(self) << "ERROR: Hosts list is empty" << std::endl;
@@ -60,7 +60,7 @@ gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self
 		[] (const new_data_msg&) {},
 		[] (const connection_closed_msg&) {},
 		[] (const acceptor_closed_msg&) {},
-		[=] (publish_atom, uint16_t port)
+		[self] (publish_atom, uint16_t port)
 			-> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
 			try {
 				return {
@@ -71,7 +71,7 @@ gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self
 				return {error_atom::value, e.what()};
 			}
 		},
-		[=] (publish_atom, const std::string& host, uint16_t port)
+		[self] (publish_atom, const std::string& host, uint16_t port)
 			-> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
 			try {
 				return {
@@ -82,7 +82,7 @@ gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self
 				return {error_atom::value, e.what()};
 			}
 		},
-		[=] (	add_atom, const std::string& addr, uint16_t port,
+		[self] (add_atom, const std::string& addr, uint16_t port,
 				const std::vector<uint8_t>& key, bool zlib) {
 			gate_service_state::host_info host;
 			host.addr = addr;

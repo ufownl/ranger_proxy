@@ -59,7 +59,7 @@ private:
 };
 
 gate_service::behavior_type
-gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self);
+gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self, int timeout);
 
 } }
 

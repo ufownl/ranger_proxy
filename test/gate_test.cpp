@@ -25,7 +25,7 @@
 #include <arpa/inet.h>
 
 TEST_F(echo_test, gate_echo) {
-	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl);
+	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300);
 	scope_guard guard_gate([gate] {
 		caf::anon_send_exit(gate, caf::exit_reason::kill);
 	});
@@ -64,7 +64,7 @@ TEST_F(echo_test, gate_echo) {
 }
 
 TEST_F(echo_test, gate_chain_echo) {
-	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl);
+	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300);
 	scope_guard guard_gate([gate] {
 		caf::anon_send_exit(gate, caf::exit_reason::kill);
 	});
@@ -85,7 +85,7 @@ TEST_F(echo_test, gate_chain_echo) {
 	}
 	ASSERT_NE(0, port);
 
-	auto gate2 = caf::io::spawn_io(ranger::proxy::gate_service_impl);
+	auto gate2 = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300);
 	scope_guard guard_gate2([gate2] {
 		caf::anon_send_exit(gate2, caf::exit_reason::kill);
 	});
@@ -123,7 +123,7 @@ TEST_F(echo_test, gate_chain_echo) {
 }
 
 TEST_F(ranger_proxy_test, gate_null) {
-	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl);
+	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300);
 	scope_guard guard_gate([gate] {
 		caf::anon_send_exit(gate, caf::exit_reason::kill);
 	});

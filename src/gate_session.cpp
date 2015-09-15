@@ -19,6 +19,7 @@
 #include "connect_helper.hpp"
 #include "aes_cfb128_encryptor.hpp"
 #include "zlib_encryptor.hpp"
+#include <chrono>
 
 namespace ranger { namespace proxy {
 
@@ -149,8 +150,9 @@ void gate_state::handle_connect_fail(const std::string& what) {
 }
 
 gate_session::behavior_type
-gate_session_impl(	gate_session::stateful_broker_pointer<gate_state> self, connection_handle hdl,
-					const std::string& host, uint16_t port, const std::vector<uint8_t>& key, bool zlib) {
+gate_session_impl(	gate_session::stateful_broker_pointer<gate_state> self,
+					connection_handle hdl, const std::string& host, uint16_t port,
+					const std::vector<uint8_t>& key, bool zlib, int timeout) {
 	self->state.init(hdl, host, port, key, zlib);
 	return {
 		[self] (const new_data_msg& msg) {
@@ -172,6 +174,9 @@ gate_session_impl(	gate_session::stateful_broker_pointer<gate_state> self, conne
 			self->state.handle_decrypted_data(buf);
 		},
 		[self] (close_atom) {
+			self->quit();
+		},
+		after(std::chrono::seconds(timeout)) >> [self] {
 			self->quit();
 		}
 	};

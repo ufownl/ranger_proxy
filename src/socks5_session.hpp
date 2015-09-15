@@ -81,7 +81,8 @@ private:
 
 socks5_session::behavior_type
 socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
-					connection_handle hdl, user_table tbl, encryptor enc, bool verbose);
+					connection_handle hdl, user_table tbl, encryptor enc,
+					int timeout, bool verbose);
 
 } }
 

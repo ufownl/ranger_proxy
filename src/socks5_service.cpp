@@ -61,11 +61,11 @@ encryptor socks5_service_state::spawn_encryptor(uint32_t seed) const {
 }
 
 socks5_service::behavior_type
-socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self, bool verbose) {
+socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self, int timeout, bool verbose) {
 	std::random_device dev;
 	std::minstd_rand rd(dev());
 	return {
-		[rd, self, verbose] (const new_connection_msg& msg) mutable {
+		[rd, self, timeout, verbose] (const new_connection_msg& msg) mutable {
 			uint32_t seed = 0;
 			if (!self->state.get_key().empty()) {
 				seed = rd();
@@ -81,7 +81,7 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
 				self->fork(	socks5_session_impl, msg.handle,
 							self->state.get_user_table(),
 							self->state.spawn_encryptor(seed),
-							verbose);
+							timeout, verbose);
 			self->link_to(forked);
 		},
 		[] (const new_data_msg&) {},

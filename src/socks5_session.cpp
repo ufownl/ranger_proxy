@@ -399,7 +399,8 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 
 socks5_session::behavior_type
 socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
-					connection_handle hdl, user_table tbl, encryptor enc, bool verbose) {
+					connection_handle hdl, user_table tbl, encryptor enc,
+					int timeout, bool verbose) {
 	self->state.init(hdl, tbl, enc, verbose);
 	return {
 		[self] (const new_data_msg& msg) {
@@ -424,6 +425,9 @@ socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
 			self->state.handle_auth_result(result);
 		},
 		[self] (close_atom) {
+			self->quit();
+		},
+		after(std::chrono::seconds(timeout)) >> [self] {
 			self->quit();
 		}
 	};

@@ -63,8 +63,9 @@ private:
 };
 
 gate_session::behavior_type
-gate_session_impl(	gate_session::stateful_broker_pointer<gate_state> self, connection_handle hdl,
-					const std::string& host, uint16_t port, const std::vector<uint8_t>& key, bool zlib);
+gate_session_impl(	gate_session::stateful_broker_pointer<gate_state> self,
+					connection_handle hdl, const std::string& host, uint16_t port,
+					const std::vector<uint8_t>& key, bool zlib, int timeout);
 
 } }
 
