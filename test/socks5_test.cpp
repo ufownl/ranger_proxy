@@ -30,7 +30,7 @@
 #include <string.h>
 
 TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
@@ -109,7 +109,7 @@ TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
 }
 
 TEST_F(echo_test, socks5_no_auth_conn_domainname) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
@@ -192,7 +192,7 @@ TEST_F(echo_test, socks5_no_auth_conn_domainname) {
 }
 
 TEST_F(ranger_proxy_test, socks5_no_auth_conn_ipv4_null) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
@@ -264,7 +264,7 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_ipv4_null) {
 }
 
 TEST_F(ranger_proxy_test, socks5_no_auth_conn_domainname_null) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
@@ -343,14 +343,13 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_domainname_null) {
 TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
 	std::string str = "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF";
 	std::vector<uint8_t> key(str.begin(), str.end());
-	std::vector<uint8_t> ivec;
 
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
 
-	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl);
+	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300);
 	scope_guard guard_gate([gate] {
 		caf::anon_send_exit(gate, caf::exit_reason::kill);
 	});
@@ -358,7 +357,7 @@ TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
 	uint16_t port = 0;
 	{
 		caf::scoped_actor self;
-		self->send(socks5, ranger::proxy::encrypt_atom::value, key, ivec);
+		self->send(socks5, ranger::proxy::encrypt_atom::value, key);
 		self->sync_send(socks5, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
 			[&port] (caf::ok_atom, uint16_t socks5_port) {
 				port = socks5_port;
@@ -372,7 +371,7 @@ TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
 
 	{
 		caf::scoped_actor self;
-		self->send(gate, caf::add_atom::value, "127.0.0.1", port, key, ivec, false);
+		self->send(gate, caf::add_atom::value, "127.0.0.1", port, key, false);
 		self->sync_send(gate, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
 			[&port] (caf::ok_atom, uint16_t gate_port) {
 				port = gate_port;
@@ -446,14 +445,13 @@ TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
 TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
 	std::string str = "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF";
 	std::vector<uint8_t> key(str.begin(), str.end());
-	std::vector<uint8_t> ivec;
 
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
 
-	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl);
+	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300);
 	scope_guard guard_gate([gate] {
 		caf::anon_send_exit(gate, caf::exit_reason::kill);
 	});
@@ -461,7 +459,7 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
 	uint16_t port = 0;
 	{
 		caf::scoped_actor self;
-		self->send(socks5, ranger::proxy::encrypt_atom::value, key, ivec);
+		self->send(socks5, ranger::proxy::encrypt_atom::value, key);
 		self->sync_send(socks5, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
 			[&port] (caf::ok_atom, uint16_t socks5_port) {
 				port = socks5_port;
@@ -475,7 +473,7 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
 
 	{
 		caf::scoped_actor self;
-		self->send(gate, caf::add_atom::value, "127.0.0.1", port, key, ivec, false);
+		self->send(gate, caf::add_atom::value, "127.0.0.1", port, key, false);
 		self->sync_send(gate, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
 			[&port] (caf::ok_atom, uint16_t gate_port) {
 				port = gate_port;
@@ -544,14 +542,13 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
 TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
 	std::string str = "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF";
 	std::vector<uint8_t> key(str.begin(), str.end());
-	std::vector<uint8_t> ivec;
 
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
 
-	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl);
+	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300);
 	scope_guard guard_gate([gate] {
 		caf::anon_send_exit(gate, caf::exit_reason::kill);
 	});
@@ -559,7 +556,7 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
 	uint16_t port = 0;
 	{
 		caf::scoped_actor self;
-		self->send(socks5, ranger::proxy::encrypt_atom::value, key, ivec);
+		self->send(socks5, ranger::proxy::encrypt_atom::value, key);
 		self->sync_send(socks5, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
 			[&port] (caf::ok_atom, uint16_t socks5_port) {
 				port = socks5_port;
@@ -573,7 +570,7 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
 
 	{
 		caf::scoped_actor self;
-		self->send(gate, caf::add_atom::value, "127.0.0.1", port, key, ivec, false);
+		self->send(gate, caf::add_atom::value, "127.0.0.1", port, key, false);
 		self->sync_send(gate, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
 			[&port] (caf::ok_atom, uint16_t gate_port) {
 				port = gate_port;
@@ -645,7 +642,7 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
 }
 
 TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
@@ -747,7 +744,7 @@ TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
 }
 
 TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, true);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, true);
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
@@ -847,7 +844,7 @@ TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
 }
 
 TEST_F(echo_test, socks5_username_auth_conn_domainname) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
@@ -953,7 +950,7 @@ TEST_F(echo_test, socks5_username_auth_conn_domainname) {
 }
 
 TEST_F(ranger_proxy_test, socks5_username_auth_failed) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});

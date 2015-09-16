@@ -51,9 +51,15 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 		port = atoi(node->value());
 	}
 
+	int timeout = 300;
+	node = root->first_node("timeout");
+	if (node) {
+		timeout = atoi(node->value());
+	}
+
 	node = root->first_node("gate");
 	if (node && atoi(node->value())) {
-		auto serv = spawn_io(gate_service_impl);
+		auto serv = spawn_io(gate_service_impl, timeout);
 		scoped_actor self;
 		for (auto j = root->first_node("remote_host"); j; j = j->next_sibling("remote_host")) {
 			std::string remote_addr;
@@ -82,8 +88,7 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 				zlib = true;
 			}
 
-			std::vector<uint8_t> ivec;
-			self->send(serv, add_atom::value, remote_addr, remote_port, key, ivec, zlib);
+			self->send(serv, add_atom::value, remote_addr, remote_port, key, zlib);
 		}
 
 		auto ok_hdl = [] (ok_atom, uint16_t) {
@@ -103,7 +108,7 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 			anon_send_exit(serv, exit_reason::kill);
 		}
 	} else {
-		auto serv = spawn_io(socks5_service_impl, verbose);
+		auto serv = spawn_io(socks5_service_impl, timeout, verbose);
 		scoped_actor self;
 		for (auto j = root->first_node("user"); j; j = j->next_sibling("user")) {
 			node = j->first_node("username");
@@ -135,8 +140,7 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 						node->value() + strlen(node->value()));
 		}
 
-		std::vector<uint8_t> ivec;
-		self->send(serv, encrypt_atom::value, key, ivec);
+		self->send(serv, encrypt_atom::value, key);
 
 		node = root->first_node("zlib");
 		if (node && atoi(node->value())) {
@@ -188,6 +192,7 @@ int bootstrap(int argc, char* argv[]) {
 	std::string username;
 	std::string password;
 	std::string key_src;
+	int timeout = 300;
 	std::string remote_host;
 	uint16_t remote_port = 0;
 	std::string config;
@@ -199,6 +204,7 @@ int bootstrap(int argc, char* argv[]) {
 		{"password", "set password", password},
 		{"key,k", "set key (default: empty)", key_src},
 		{"zlib,z", "enable zlib compression (default: disable)"},
+		{"timeout,t", "set timeout (default: 300)", timeout},
 		{"gate,G", "run in gate mode"},
 		{"remote_host", "set remote host (only used in gate mode)", remote_host},
 		{"remote_port", "set remote port (only used in gate mode)", remote_port},
@@ -233,11 +239,10 @@ int bootstrap(int argc, char* argv[]) {
 		ret = bootstrap_with_config(config, res.opts.count("verbose") > 0);
 	} else if (res.opts.count("gate") > 0) {
 		scoped_actor self;
-		auto serv = spawn_io(gate_service_impl);
+		auto serv = spawn_io(gate_service_impl, timeout);
 		std::vector<uint8_t> key(key_src.begin(), key_src.end());
-		std::vector<uint8_t> ivec;
 		self->send(	serv, add_atom::value, remote_host, remote_port,
-					key, ivec, res.opts.count("zlib") > 0);
+					key, res.opts.count("zlib") > 0);
 		auto ok_hdl = [] (ok_atom, uint16_t) {
 			std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
 		};
@@ -255,7 +260,7 @@ int bootstrap(int argc, char* argv[]) {
 			anon_send_exit(serv, exit_reason::kill);
 		}
 	} else {
-		auto serv = spawn_io(socks5_service_impl, res.opts.count("verbose") > 0);
+		auto serv = spawn_io(socks5_service_impl, timeout, res.opts.count("verbose") > 0);
 		scoped_actor self;
 		if (!username.empty()) {
 			self->sync_send(serv, add_atom::value, username, password).await(
@@ -269,8 +274,7 @@ int bootstrap(int argc, char* argv[]) {
 			);
 		}
 		std::vector<uint8_t> key(key_src.begin(), key_src.end());
-		std::vector<uint8_t> ivec;
-		self->send(serv, encrypt_atom::value, key, ivec);
+		self->send(serv, encrypt_atom::value, key);
 		self->send(serv, zlib_atom::value, res.opts.count("zlib") > 0);
 		auto ok_hdl = [] (ok_atom, uint16_t) {
 			std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;

@@ -19,6 +19,7 @@
 
 #include <vector>
 #include "encryptor.hpp"
+#include "unpacker.hpp"
 
 namespace ranger { namespace proxy {
 
@@ -39,7 +40,8 @@ public:
 	gate_state(const gate_state&) = delete;
 	gate_state& operator = (const gate_state&) = delete;
 
-	void init(connection_handle hdl, const std::string& host, uint16_t port, encryptor enc);
+	void init(	connection_handle hdl, const std::string& host, uint16_t port,
+				const std::vector<uint8_t>& key, bool zlib);
 
 	void handle_new_data(const new_data_msg& msg);
 	void handle_conn_closed(const connection_closed_msg& msg);
@@ -53,13 +55,17 @@ private:
 	const gate_session::broker_pointer m_self;
 	connection_handle m_local_hdl;
 	connection_handle m_remote_hdl;
+	std::vector<uint8_t> m_key;
+	bool m_zlib {false};
 	encryptor m_encryptor;
 	std::vector<char> m_buf;
+	unpacker<uint8_t> m_unpacker;
 };
 
 gate_session::behavior_type
 gate_session_impl(	gate_session::stateful_broker_pointer<gate_state> self,
-					connection_handle hdl, const std::string& host, uint16_t port, encryptor enc);
+					connection_handle hdl, const std::string& host, uint16_t port,
+					const std::vector<uint8_t>& key, bool zlib, int timeout);
 
 } }
 
