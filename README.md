@@ -66,3 +66,6 @@ make install
 - [x] DOMAINNAME
 - [ ] IP V6 address
 
+## License
+[GNU General Public License Version 3](http://www.gnu.org/licenses/)
+
