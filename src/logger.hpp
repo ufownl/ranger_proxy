@@ -19,6 +19,8 @@
 
 #include <string>
 #include <fstream>
+#include <memory>
+#include <vector>
 
 namespace ranger { namespace proxy {
 
@@ -35,7 +37,8 @@ public:
 	void write(const std::string& content);
 
 private:
-	std::ofstream m_fout;
+	std::unique_ptr<std::ofstream> m_fout;
+	std::vector<char> m_buf;
 };
 
 logger::behavior_type

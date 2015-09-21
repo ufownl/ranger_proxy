@@ -21,13 +21,17 @@
 namespace ranger { namespace proxy {
 
 void logger_state::init(const std::string& path) {
-	m_fout = std::ofstream(path);
+	m_fout.reset(new std::ofstream(path));
+	m_buf.resize(64);
 }
 
 void logger_state::write(const std::string& content) {
 	time_t now = time(nullptr);
-	const tm* now_tm = localtime(&now);
-	m_fout << std::put_time(now_tm, "[%c] ") << content << std::flush;
+	while (strftime(m_buf.data(), m_buf.size(), "[%c] ", localtime(&now)) == 0) {
+		m_buf.resize(m_buf.size() * 2);
+	}
+
+	*m_fout << m_buf.data() << content << std::flush;
 }
 
 logger::behavior_type
