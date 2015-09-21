@@ -20,12 +20,14 @@
 #include "connect_helper.cpp"
 #include "aes_cfb128_encryptor.cpp"
 #include "zlib_encryptor.cpp"
+#include "logger_ostream.cpp"
+#include "logger.cpp"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
 TEST_F(echo_test, gate_echo) {
-	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300);
+	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300, std::string());
 	scope_guard guard_gate([gate] {
 		caf::anon_send_exit(gate, caf::exit_reason::kill);
 	});
@@ -64,7 +66,7 @@ TEST_F(echo_test, gate_echo) {
 }
 
 TEST_F(echo_test, gate_chain_echo) {
-	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300);
+	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300, std::string());
 	scope_guard guard_gate([gate] {
 		caf::anon_send_exit(gate, caf::exit_reason::kill);
 	});
@@ -85,7 +87,7 @@ TEST_F(echo_test, gate_chain_echo) {
 	}
 	ASSERT_NE(0, port);
 
-	auto gate2 = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300);
+	auto gate2 = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300, std::string());
 	scope_guard guard_gate2([gate2] {
 		caf::anon_send_exit(gate2, caf::exit_reason::kill);
 	});
@@ -123,7 +125,7 @@ TEST_F(echo_test, gate_chain_echo) {
 }
 
 TEST_F(ranger_proxy_test, gate_null) {
-	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300);
+	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300, std::string());
 	scope_guard guard_gate([gate] {
 		caf::anon_send_exit(gate, caf::exit_reason::kill);
 	});

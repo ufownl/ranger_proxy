@@ -19,6 +19,7 @@
 #include "connect_helper.hpp"
 #include "aes_cfb128_encryptor.hpp"
 #include "zlib_encryptor.hpp"
+#include "logger_ostream.hpp"
 #include <chrono>
 
 namespace ranger { namespace proxy {
@@ -145,7 +146,7 @@ void gate_state::handle_connect_succ(connection_handle hdl) {
 }
 
 void gate_state::handle_connect_fail(const std::string& what) {
-	aout(m_self) << "ERROR: " << what << std::endl;
+	log(m_self) << "ERROR: " << what << std::endl;
 	m_self->quit();
 }
 

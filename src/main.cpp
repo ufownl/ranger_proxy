@@ -33,7 +33,7 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 		if (pid == 0) {
 			return bootstrap_with_config_impl(next, verbose);
 		} else if (pid < 0) {
-			std::cout << "ERROR: Failed in calling fork()" << std::endl;
+			std::cerr << "ERROR: Failed in calling fork()" << std::endl;
 			return 1;
 		}
 	}
@@ -57,9 +57,15 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 		timeout = atoi(node->value());
 	}
 
+	std::string log;
+	node = root->first_node("log");
+	if (node) {
+		log = node->value();
+	}
+
 	node = root->first_node("gate");
 	if (node && atoi(node->value())) {
-		auto serv = spawn_io(gate_service_impl, timeout);
+		auto serv = spawn_io(gate_service_impl, timeout, log);
 		scoped_actor self;
 		for (auto j = root->first_node("remote_host"); j; j = j->next_sibling("remote_host")) {
 			std::string remote_addr;
@@ -95,7 +101,7 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 			std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
 		};
 		auto err_hdl = [&ret] (error_atom, const std::string& what) {
-			std::cout << "ERROR: " << what << std::endl;
+			std::cerr << "ERROR: " << what << std::endl;
 			ret = 1;
 		};
 		if (host.empty()) {
@@ -108,7 +114,7 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 			anon_send_exit(serv, exit_reason::kill);
 		}
 	} else {
-		auto serv = spawn_io(socks5_service_impl, timeout, verbose);
+		auto serv = spawn_io(socks5_service_impl, timeout, verbose, log);
 		scoped_actor self;
 		for (auto j = root->first_node("user"); j; j = j->next_sibling("user")) {
 			node = j->first_node("username");
@@ -125,7 +131,7 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 						if (result) {
 							std::cout << "INFO: Add user[" << username << "] successfully" << std::endl;
 						} else {
-							std::cout << "ERROR: Fail in adding user[" << username << "]" << std::endl;
+							std::cerr << "ERROR: Fail in adding user[" << username << "]" << std::endl;
 						}
 					}
 				);
@@ -151,7 +157,7 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 			std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
 		};
 		auto err_hdl = [&ret] (error_atom, const std::string& what) {
-			std::cout << "ERROR: " << what << std::endl;
+			std::cerr << "ERROR: " << what << std::endl;
 			ret = 1;
 		};
 		if (host.empty()) {
@@ -178,10 +184,10 @@ int bootstrap_with_config(const std::string& config, bool verbose) {
 		}
 		return 0;
 	} catch (const rapidxml::parse_error& e) {
-		std::cout << "ERROR: " << e.what() << " [" << e.where<const char>() << "]" << std::endl;
+		std::cerr << "ERROR: " << e.what() << " [" << e.where<const char>() << "]" << std::endl;
 		return 1;
 	} catch (const std::runtime_error& e) {
-		std::cout << "ERROR: " << e.what() << std::endl;
+		std::cerr << "ERROR: " << e.what() << std::endl;
 		return 1;
 	}
 }
@@ -193,6 +199,7 @@ int bootstrap(int argc, char* argv[]) {
 	std::string password;
 	std::string key_src;
 	int timeout = 300;
+	std::string log;
 	std::string remote_host;
 	uint16_t remote_port = 0;
 	std::string config;
@@ -205,6 +212,7 @@ int bootstrap(int argc, char* argv[]) {
 		{"key,k", "set key (default: empty)", key_src},
 		{"zlib,z", "enable zlib compression (default: disable)"},
 		{"timeout,t", "set timeout (default: 300)", timeout},
+		{"log", "set log file path (default: empty)", log},
 		{"gate,G", "run in gate mode"},
 		{"remote_host", "set remote host (only used in gate mode)", remote_host},
 		{"remote_port", "set remote port (only used in gate mode)", remote_port},
@@ -228,7 +236,7 @@ int bootstrap(int argc, char* argv[]) {
 		if (pid > 0) {
 			return 0;
 		} else if (pid < 0) {
-			std::cout << "ERROR: Failed in calling fork()" << std::endl;
+			std::cerr << "ERROR: Failed in calling fork()" << std::endl;
 			return 1;
 		}
 	}
@@ -239,7 +247,7 @@ int bootstrap(int argc, char* argv[]) {
 		ret = bootstrap_with_config(config, res.opts.count("verbose") > 0);
 	} else if (res.opts.count("gate") > 0) {
 		scoped_actor self;
-		auto serv = spawn_io(gate_service_impl, timeout);
+		auto serv = spawn_io(gate_service_impl, timeout, log);
 		std::vector<uint8_t> key(key_src.begin(), key_src.end());
 		self->send(	serv, add_atom::value, remote_host, remote_port,
 					key, res.opts.count("zlib") > 0);
@@ -247,7 +255,7 @@ int bootstrap(int argc, char* argv[]) {
 			std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
 		};
 		auto err_hdl = [&ret] (error_atom, const std::string& what) {
-			std::cout << "ERROR: " << what << std::endl;
+			std::cerr << "ERROR: " << what << std::endl;
 			ret = 1;
 		};
 		if (host.empty()) {
@@ -260,7 +268,7 @@ int bootstrap(int argc, char* argv[]) {
 			anon_send_exit(serv, exit_reason::kill);
 		}
 	} else {
-		auto serv = spawn_io(socks5_service_impl, timeout, res.opts.count("verbose") > 0);
+		auto serv = spawn_io(socks5_service_impl, timeout, res.opts.count("verbose") > 0, log);
 		scoped_actor self;
 		if (!username.empty()) {
 			self->sync_send(serv, add_atom::value, username, password).await(
@@ -268,7 +276,7 @@ int bootstrap(int argc, char* argv[]) {
 					if (result) {
 						std::cout << "INFO: Add user[" << username << "] successfully" << std::endl;
 					} else {
-						std::cout << "ERROR: Fail in adding user[" << username << "]" << std::endl;
+						std::cerr << "ERROR: Fail in adding user[" << username << "]" << std::endl;
 					}
 				}
 			);
@@ -280,7 +288,7 @@ int bootstrap(int argc, char* argv[]) {
 			std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
 		};
 		auto err_hdl = [&ret] (error_atom, const std::string& what) {
-			std::cout << "ERROR: " << what << std::endl;
+			std::cerr << "ERROR: " << what << std::endl;
 			ret = 1;
 		};
 		if (host.empty()) {

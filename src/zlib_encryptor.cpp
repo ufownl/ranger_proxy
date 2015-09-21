@@ -16,6 +16,7 @@
 
 #include "common.hpp"
 #include "zlib_encryptor.hpp"
+#include "logger_ostream.hpp"
 #include <stdexcept>
 #include <new>
 
@@ -42,7 +43,7 @@ void zlib_state::init(const encryptor& enc) {
 	if (err_code == Z_MEM_ERROR) {
 		throw std::bad_alloc();
 	} else if (err_code != Z_OK) {
-		aout(m_self) << "ERROR: " << m_deflate_strm.msg << std::endl;
+		log(m_self) << "ERROR: " << m_deflate_strm.msg << std::endl;
 		throw std::runtime_error(m_deflate_strm.msg);
 	}
 
@@ -50,7 +51,7 @@ void zlib_state::init(const encryptor& enc) {
 	if (err_code == Z_MEM_ERROR) {
 		throw std::bad_alloc();
 	} else if (err_code != Z_OK) {
-		aout(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
+		log(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
 		throw std::runtime_error(m_inflate_strm.msg);
 	}
 }
@@ -117,7 +118,7 @@ std::vector<char> zlib_state::uncompress(const std::vector<char>& in) {
 		if (err == Z_MEM_ERROR) {
 			throw std::bad_alloc();
 		} else if (err == Z_NEED_DICT || err == Z_DATA_ERROR) {
-			aout(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
+			log(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
 			break;
 		}
 

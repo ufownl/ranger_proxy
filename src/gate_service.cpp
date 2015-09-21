@@ -17,6 +17,7 @@
 #include "common.hpp"
 #include "gate_service.hpp"
 #include "gate_session.hpp"
+#include "logger_ostream.hpp"
 
 namespace ranger { namespace proxy {
 
@@ -43,9 +44,14 @@ gate_service_state::host_info gate_service_state::query_host() {
 }
 
 gate_service::behavior_type
-gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self, int timeout) {
+gate_service_impl(	gate_service::stateful_broker_pointer<gate_service_state> self,
+					int timeout, const std::string& log) {
+	if (!log.empty()) {
+		logger_ostream::redirect(self->spawn<linked>(logger_impl, log));
+	}
+
 	return {
-		[=] (const new_connection_msg& msg) {
+		[self, timeout] (const new_connection_msg& msg) {
 			auto host = self->state.query_host();
 			if (host.port != 0) {
 				auto forked =
@@ -53,7 +59,7 @@ gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self
 								host.key, host.zlib, timeout);
 				self->link_to(forked);
 			} else {
-				aout(self) << "ERROR: Hosts list is empty" << std::endl;
+				ranger::proxy::log(self) << "ERROR: Hosts list is empty" << std::endl;
 				self->close(msg.handle);
 			}
 		},

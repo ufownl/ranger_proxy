@@ -17,6 +17,7 @@
 #include "test_util.hpp"
 #include "aes_cfb128_encryptor.cpp"
 #include "zlib_encryptor.cpp"
+#include "logger_ostream.cpp"
 
 TEST_F(ranger_proxy_test, aes_cfb128_encryptor_128) {
 	std::string str = "ABCDEFGHIJKLMNOP";
