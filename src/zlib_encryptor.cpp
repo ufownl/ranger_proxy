@@ -95,7 +95,7 @@ std::vector<char> zlib_state::compress(const std::vector<char>& in) {
 		Bytef buf[BUFFER_SIZE];
 		m_deflate_strm.next_out = buf;
 		m_deflate_strm.avail_out = sizeof(buf);
-		deflate(&m_deflate_strm, Z_PARTIAL_FLUSH);
+		deflate(&m_deflate_strm, Z_SYNC_FLUSH);
 		size_t len = sizeof(buf) - m_deflate_strm.avail_out;
 		if (len > 0) {
 			out.insert(out.end(), buf, buf + len);
@@ -114,7 +114,7 @@ std::vector<char> zlib_state::uncompress(const std::vector<char>& in) {
 		Bytef buf[BUFFER_SIZE];
 		m_inflate_strm.next_out = buf;
 		m_inflate_strm.avail_out = sizeof(buf);
-		auto err = inflate(&m_inflate_strm, Z_NO_FLUSH);
+		auto err = inflate(&m_inflate_strm, Z_SYNC_FLUSH);
 		if (err == Z_MEM_ERROR) {
 			throw std::bad_alloc();
 		} else if (err == Z_NEED_DICT || err == Z_DATA_ERROR) {
