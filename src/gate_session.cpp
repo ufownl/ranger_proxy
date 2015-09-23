@@ -38,7 +38,7 @@ gate_state::~gate_state() {
 void gate_state::init(	connection_handle hdl, const std::string& host, uint16_t port,
 						const std::vector<uint8_t>& key, bool zlib) {
 	m_local_hdl = hdl;
-	m_self->configure_read(m_local_hdl, receive_policy::at_most(8192));
+	m_self->configure_read(m_local_hdl, receive_policy::at_most(BUFFER_SIZE));
 
 	m_key = key;
 	m_zlib = zlib;
@@ -100,7 +100,7 @@ void gate_state::handle_decrypted_data(const std::vector<char>& buf) {
 void gate_state::handle_connect_succ(connection_handle hdl) {
 	m_self->assign_tcp_scribe(hdl);
 	m_remote_hdl = hdl;
-	m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
+	m_self->configure_read(m_remote_hdl, receive_policy::at_most(BUFFER_SIZE));
 
 	if (m_key.empty()) {
 		if (m_zlib) {

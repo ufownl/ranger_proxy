@@ -22,6 +22,8 @@
 
 namespace ranger { namespace proxy {
 
+const size_t BUFFER_SIZE = 256 * 1024;	// default: 256k
+
 using namespace caf;
 using namespace caf::io;
 using namespace caf::io::experimental;

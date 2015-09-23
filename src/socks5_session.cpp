@@ -40,7 +40,7 @@ void socks5_state::init(connection_handle hdl,
 						const encryptor& enc,
 						bool verbose) {
 	m_local_hdl = hdl;
-	m_self->configure_read(m_local_hdl, receive_policy::at_most(8192));
+	m_self->configure_read(m_local_hdl, receive_policy::at_most(BUFFER_SIZE));
 	m_user_tbl = tbl;
 	m_encryptor = enc;
 	m_verbose = verbose;
@@ -328,7 +328,7 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
 					reinterpret_cast<const char*>(&port) + sizeof(port));
 		write_to_local(std::move(buf));
 
-		m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
+		m_self->configure_read(m_remote_hdl, receive_policy::at_most(BUFFER_SIZE));
 	};
 
 	m_conn_fail_handler = [this, addr, port] (const std::string& what) {
@@ -379,7 +379,7 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 						reinterpret_cast<const char*>(&port) + sizeof(port));
 			write_to_local(std::move(buf));
 
-			m_self->configure_read(m_remote_hdl, receive_policy::at_most(8192));
+			m_self->configure_read(m_remote_hdl, receive_policy::at_most(BUFFER_SIZE));
 		};
 
 		m_conn_fail_handler = [this, host, port] (const std::string& what) {
