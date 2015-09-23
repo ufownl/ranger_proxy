@@ -59,6 +59,7 @@ void socks5_state::handle_new_data(const new_data_msg& msg) {
 			m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
 		} else {
 			m_self->send(m_encryptor, encrypt_atom::value, msg.buf);
+			++m_encrypting;
 		}
 	} else {
 		if (msg.handle == m_local_hdl) {
@@ -74,10 +75,8 @@ void socks5_state::handle_new_data(const new_data_msg& msg) {
 }
 
 void socks5_state::handle_conn_closed(const connection_closed_msg& msg) {
-	if (msg.handle == m_local_hdl) {
+	if (msg.handle == m_local_hdl || m_encrypting == 0) {
 		m_self->quit();
-	} else {
-		m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
 	}
 }
 
@@ -95,6 +94,12 @@ void socks5_state::handle_connect_fail(const std::string& what) {
 
 void socks5_state::handle_encrypted_data(const std::vector<char>& buf) {
 	write_raw(m_local_hdl, buf);
+
+	if (--m_encrypting == 0
+		&& (!m_valid
+			|| (!m_remote_hdl.invalid() && !m_self->valid(m_remote_hdl)))) {
+		m_self->quit();
+	}
 }
 
 void socks5_state::handle_decrypted_data(const std::vector<char>& buf) {
@@ -122,9 +127,10 @@ void socks5_state::handle_auth_result(bool result) {
 	}
 }
 
-void socks5_state::write_to_local(std::vector<char> buf) const {
+void socks5_state::write_to_local(std::vector<char> buf) {
 	if (m_encryptor) {
 		m_self->send(m_encryptor, encrypt_atom::value, std::move(buf));
+		++m_encrypting;
 	} else {
 		write_raw(m_local_hdl, std::move(buf));
 	}
@@ -139,8 +145,8 @@ void socks5_state::write_raw(connection_handle hdl, std::vector<char> buf) const
 	}
 	m_self->flush(hdl);
 
-	if (!m_valid) {
-		m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
+	if (!m_valid && m_encrypting == 0) {
+		m_self->quit();
 	}
 }
 
@@ -424,9 +430,6 @@ socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
 		},
 		[self] (auth_atom, bool result) {
 			self->state.handle_auth_result(result);
-		},
-		[self] (close_atom) {
-			self->quit();
 		},
 		after(std::chrono::seconds(timeout)) >> [self] {
 			self->quit();

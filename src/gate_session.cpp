@@ -67,6 +67,7 @@ void gate_state::handle_new_data(const new_data_msg& msg) {
 		if (!m_key.empty()) {
 			if (m_encryptor) {
 				m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
+				++m_decrypting;
 			} else {
 				m_unpacker.append(msg.buf);
 			}
@@ -78,10 +79,8 @@ void gate_state::handle_new_data(const new_data_msg& msg) {
 }
 
 void gate_state::handle_conn_closed(const connection_closed_msg& msg) {
-	if (msg.handle == m_local_hdl) {
+	if (msg.handle == m_local_hdl || m_decrypting == 0) {
 		m_self->quit();
-	} else {
-		m_self->delayed_send(m_self, std::chrono::seconds(2), close_atom::value);
 	}
 }
 
@@ -95,6 +94,10 @@ void gate_state::handle_encrypted_data(const std::vector<char>& buf) {
 void gate_state::handle_decrypted_data(const std::vector<char>& buf) {
 	m_self->write(m_local_hdl, buf.size(), buf.data());
 	m_self->flush(m_local_hdl);
+
+	if (--m_decrypting == 0 && !m_self->valid(m_remote_hdl)) {
+		m_self->quit();
+	}
 }
 
 void gate_state::handle_connect_succ(connection_handle hdl) {
@@ -173,9 +176,6 @@ gate_session_impl(	gate_session::stateful_broker_pointer<gate_state> self,
 		},
 		[self] (decrypt_atom, const std::vector<char>& buf) {
 			self->state.handle_decrypted_data(buf);
-		},
-		[self] (close_atom) {
-			self->quit();
 		},
 		after(std::chrono::seconds(timeout)) >> [self] {
 			self->quit();
