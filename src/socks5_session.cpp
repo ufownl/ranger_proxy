@@ -52,7 +52,8 @@ void socks5_state::init(connection_handle hdl,
 
 void socks5_state::handle_new_data(const new_data_msg& msg) {
 	if (!m_valid) {
-		log(m_self) << "ERROR: Current state is invalid" << std::endl;
+		log(m_self) << "ERROR: Current state is invalid ["
+			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		m_self->quit();
 	} else if (m_encryptor) {
 		if (msg.handle == m_local_hdl) {
@@ -113,7 +114,8 @@ void socks5_state::handle_decrypted_data(const std::vector<char>& buf) {
 void socks5_state::handle_auth_result(bool result) {
 	if (result) {
 		if (m_verbose) {
-			log(m_self) << "INFO: Auth successfully" << std::endl;
+			log(m_self) << "INFO: Auth successfully ["
+				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		}
 
 		write_to_local({0x01, 0x00});
@@ -121,7 +123,8 @@ void socks5_state::handle_auth_result(bool result) {
 			return handle_request_header(std::move(buf));
 		});
 	} else {
-		log(m_self) << "ERROR: Username or password error" << std::endl;
+		log(m_self) << "ERROR: Username or password error ["
+			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		m_valid = false;
 		write_to_local({0x01, static_cast<char>(0xFF)});
 	}
@@ -152,14 +155,16 @@ void socks5_state::write_raw(connection_handle hdl, std::vector<char> buf) const
 
 bool socks5_state::handle_select_method(std::vector<char> buf) {
 	if (static_cast<uint8_t>(buf[0]) != 0x05) {
-		log(m_self) << "ERROR: Protocol version mismatch" << std::endl;
+		log(m_self) << "ERROR: Protocol version mismatch ["
+			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		m_self->quit();
 		return false;
 	}
 
 	uint8_t nmethods = buf[1];
 	if (nmethods == 0) {
-		log(m_self) << "ERROR: NO ACCEPTABLE METHODS" << std::endl;
+		log(m_self) << "ERROR: NO ACCEPTABLE METHODS ["
+			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		m_valid = false;
 		write_to_local({0x05, static_cast<char>(0xFF)});
 		return false;
@@ -167,12 +172,14 @@ bool socks5_state::handle_select_method(std::vector<char> buf) {
 
 	if (m_verbose) {
 		log(m_self) << "INFO: recv select method header"
-			<< " (nmethods == " << nmethods << ")" << std::endl;
+			<< " (nmethods == " << nmethods << ") ["
+			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 	}
 
 	m_unpacker.expect(nmethods, [this] (std::vector<char> buf) {
 		if (m_verbose) {
-			log(m_self) << "INFO: recv select method data" << std::endl;
+			log(m_self) << "INFO: recv select method data ["
+				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 			for (auto i = 0; i < buf.size(); ++i) {
 				log(m_self) << "INFO: method[" << i << "] = "
 					<< static_cast<unsigned int>(buf[i]) << std::endl;
@@ -188,21 +195,24 @@ bool socks5_state::handle_select_method(std::vector<char> buf) {
 			write_to_local({0x05, static_cast<char>(method)});
 			if (method == 0x00) {
 				if (m_verbose) {
-					log(m_self) << "INFO: Select method [NO AUTHENTICATION REQUIRED]" << std::endl;
+					log(m_self) << "INFO: Select method [NO AUTHENTICATION REQUIRED] ["
+						<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 				}
 				m_unpacker.expect(4, [this] (std::vector<char> buf) {
 					return handle_request_header(std::move(buf));
 				});
 			} else {
 				if (m_verbose) {
-					log(m_self) << "INFO: Select method [USERNAME/PASSWORD]" << std::endl;
+					log(m_self) << "INFO: Select method [USERNAME/PASSWORD] ["
+						<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 				}
 				m_unpacker.expect(2, [this] (std::vector<char> buf) {
 					return handle_username_auth(std::move(buf));
 				});
 			}
 		} else {
-			log(m_self) << "ERROR: NO ACCEPTABLE METHODS" << std::endl;
+			log(m_self) << "ERROR: NO ACCEPTABLE METHODS ["
+				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 			m_valid = false;
 			write_to_local({0x05, static_cast<char>(0xFF)});
 			return false;
@@ -216,14 +226,16 @@ bool socks5_state::handle_select_method(std::vector<char> buf) {
 
 bool socks5_state::handle_username_auth(std::vector<char> buf) {
 	if (static_cast<uint8_t>(buf[0]) != 0x01) {
-		log(m_self) << "ERROR: Protocol version mismatch" << std::endl;
+		log(m_self) << "ERROR: Protocol version mismatch ["
+			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		m_self->quit();
 		return false;
 	}
 
 	uint8_t len = buf[1];
 	if (len == 0) {
-		log(m_self) << "ERROR: Username is empty" << std::endl;
+		log(m_self) << "ERROR: Username is empty ["
+			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		m_valid = false;
 		write_to_local({0x01, static_cast<char>(0xFF)});
 		return false;
@@ -236,7 +248,8 @@ bool socks5_state::handle_username_auth(std::vector<char> buf) {
 			m_unpacker.expect(len, [this, username] (std::vector<char> buf) {
 				std::string password(buf.begin(), buf.end());
 				if (m_verbose) {
-					log(m_self) << "INFO: Auth [" << username << " & " << password << "]" << std::endl;
+					log(m_self) << "INFO: Auth [" << username << " & " << password << "] ["
+						<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 				}
 
 				m_self->send(m_user_tbl, auth_atom::value, username, password);
@@ -244,7 +257,8 @@ bool socks5_state::handle_username_auth(std::vector<char> buf) {
 			});
 		} else {
 			if (m_verbose) {
-				log(m_self) << "INFO: Auth [" << username << " & [empty]]" << std::endl;
+				log(m_self) << "INFO: Auth [" << username << " & [empty]] ["
+					<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 			}
 
 			m_self->send(m_user_tbl, auth_atom::value, username, std::string());
@@ -258,17 +272,20 @@ bool socks5_state::handle_username_auth(std::vector<char> buf) {
 
 bool socks5_state::handle_request_header(std::vector<char> buf) {
 	if (static_cast<uint8_t>(buf[0]) != 0x05) {
-		log(m_self) << "ERROR: Protocol version mismatch" << std::endl;
+		log(m_self) << "ERROR: Protocol version mismatch ["
+			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		m_self->quit();
 		return false;
 	}
 
 	if (m_verbose) {
-		log(m_self) << "INFO: recv request header" << std::endl;
+		log(m_self) << "INFO: recv request header ["
+			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 	}
 
 	if (static_cast<uint8_t>(buf[1]) != 0x01) {
-		log(m_self) << "ERROR: Command not supported" << std::endl;
+		log(m_self) << "ERROR: Command not supported ["
+			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		m_valid = false;
 		write_to_local({0x05, 0x07, 0x00, 0x01});
 		return false;
@@ -277,7 +294,8 @@ bool socks5_state::handle_request_header(std::vector<char> buf) {
 	switch (static_cast<uint8_t>(buf[3])) {
 	case 0x01:	// IPV4
 		if (m_verbose) {
-			log(m_self) << "INFO: CMD[connect] ADDR[ipv4]" << std::endl;
+			log(m_self) << "INFO: CMD[connect] ADDR[ipv4] ["
+				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		}
 		m_unpacker.expect(6, [this] (std::vector<char> buf) {
 			return handle_ipv4_request(std::move(buf));
@@ -285,7 +303,8 @@ bool socks5_state::handle_request_header(std::vector<char> buf) {
 		return true;
 	case 0x03:	// DOMAINNAME
 		if (m_verbose) {
-			log(m_self) << "INFO: CMD[connect] ADDR[domainname]" << std::endl;
+			log(m_self) << "INFO: CMD[connect] ADDR[domainname] ["
+				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		}
 		m_unpacker.expect(1, [this] (std::vector<char> buf) {
 			return handle_domainname_request(std::move(buf));
@@ -293,7 +312,8 @@ bool socks5_state::handle_request_header(std::vector<char> buf) {
 		return true;
 	}
 
-	log(m_self) << "ERROR: Address type not supported" << std::endl;
+	log(m_self) << "ERROR: Address type not supported ["
+		<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 	m_valid = false;
 	write_to_local({0x05, 0x08, 0x00, 0x01});
 	return false;
@@ -307,7 +327,8 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
 	port = ntohs(port);
 
 	if (m_verbose) {
-		log(m_self) << "INFO: connect to " << inet_ntoa(addr) << ":" << port << std::endl;
+		log(m_self) << "INFO: connect to " << inet_ntoa(addr) << ":" << port << " ["
+			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 	}
 
 	auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
@@ -322,7 +343,8 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
 		m_valid = true;
 
 		if (m_verbose) {
-			log(m_self) << "INFO: " << inet_ntoa(addr) << ":" << ntohs(port) << " connected" << std::endl;
+			log(m_self) << "INFO: " << inet_ntoa(addr) << ":" << ntohs(port) << " connected ["
+				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		}
 		
 		std::vector<char> buf = {0x05, 0x00, 0x00, 0x01};
@@ -338,7 +360,8 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
 	};
 
 	m_conn_fail_handler = [this, addr, port] (const std::string& what) {
-		log(m_self) << "ERROR: " << what << std::endl;
+		log(m_self) << "ERROR: " << what << " ["
+			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		std::vector<char> buf = {0x05, 0x05, 0x00, 0x01};
 		buf.insert(	buf.end(),
 					reinterpret_cast<const char*>(&addr),
@@ -360,7 +383,8 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 		port = ntohs(port);
 
 		if (m_verbose) {
-			log(m_self) << "INFO: connect to " << host << ":" << port << std::endl;
+			log(m_self) << "INFO: connect to " << host << ":" << port << " ["
+				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		}
 
 		auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
@@ -375,7 +399,8 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 			m_valid = true;
 
 			if (m_verbose) {
-				log(m_self) << "INFO: " << host << ":" << ntohs(port) << " connected" << std::endl;
+				log(m_self) << "INFO: " << host << ":" << ntohs(port) << " connected ["
+					<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 			}
 
 			std::vector<char> buf = {0x05, 0x00, 0x00, 0x03, static_cast<char>(host.size())};
@@ -389,7 +414,8 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 		};
 
 		m_conn_fail_handler = [this, host, port] (const std::string& what) {
-			log(m_self) << "ERROR: " << what << std::endl;
+			log(m_self) << "ERROR: " << what << " ["
+				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 			std::vector<char> buf = {0x05, 0x05, 0x00, 0x03, static_cast<char>(host.size())};
 			buf.insert(	buf.end(), host.begin(), host.end());
 			buf.insert(	buf.end(),
