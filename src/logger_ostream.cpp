@@ -39,7 +39,7 @@ logger_ostream& logger_ostream::flush() {
 	if (m_logger) {
 		send_as(m_self, m_logger, std::move(m_content));
 	} else {
-		aout(m_self) << std::move(m_content) << std::flush;
+		actor_ostream(m_self) << std::move(m_content) << std::flush;
 	}
 	return *this;
 }
@@ -52,8 +52,12 @@ logger_ostream& logger_ostream::operator << (func_type func) {
 	return func(*this);
 }
 
-logger_ostream log(actor self) {
+logger_ostream log(const scoped_actor& self) {
 	return logger_ostream(self);
+}
+
+logger_ostream log(abstract_actor* self) {
+	return logger_ostream(actor_cast<actor>(intrusive_ptr<abstract_actor>(self)));
 }
 
 } }

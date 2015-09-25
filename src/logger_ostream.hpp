@@ -50,7 +50,8 @@ private:
 	std::string m_content;
 };
 
-logger_ostream log(actor self);
+logger_ostream log(const scoped_actor& self);
+logger_ostream log(abstract_actor* self);
 
 } }
 
