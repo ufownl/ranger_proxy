@@ -49,6 +49,9 @@ make install
 * [Zlib](http://www.zlib.net)
 * [OpenSSL](http://www.openssl.org)
 
+## 扩展
+* [ranger_proxy_client](https://github.com/Lingxi-Li/ranger_proxy_client) 使用*Boost.Asio*实现的**ranger_proxy**客户端
+
 ## SOCKS5特性支持
 **ranger_proxy**目前只支持部分SOCKS5特性。
 
