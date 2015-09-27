@@ -40,7 +40,7 @@ make test
 make install
 ```
 
-## 依赖项
+## 依赖
 * 支持C++11标准的编译器
   * GCC >= 4.8
   * Clang >= 3.2
@@ -50,7 +50,7 @@ make install
 * [OpenSSL](http://www.openssl.org)
 
 ## 扩展
-* [ranger_proxy_client](https://github.com/Lingxi-Li/ranger_proxy_client) 使用*Boost.Asio*实现的**ranger_proxy**客户端
+* [ranger_proxy_client](https://github.com/Lingxi-Li/ranger_proxy_client): 使用*Boost.Asio*实现的**ranger_proxy**客户端
 
 ## SOCKS5特性支持
 **ranger_proxy**目前只支持部分SOCKS5特性。
