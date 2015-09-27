@@ -28,8 +28,7 @@ using gate_session =
 		reacts_to<ok_atom, connection_handle>,
 		reacts_to<error_atom, std::string>,
 		reacts_to<encrypt_atom, std::vector<char>>,
-		reacts_to<decrypt_atom, std::vector<char>>,
-		reacts_to<close_atom>
+		reacts_to<decrypt_atom, std::vector<char>>
 	>;
 
 class gate_state {
@@ -58,6 +57,7 @@ private:
 	std::vector<uint8_t> m_key;
 	bool m_zlib {false};
 	encryptor m_encryptor;
+	size_t m_decrypting {0};
 	std::vector<char> m_buf;
 	unpacker<uint8_t> m_unpacker;
 };

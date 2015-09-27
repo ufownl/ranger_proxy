@@ -16,6 +16,7 @@
 
 #include "common.hpp"
 #include "zlib_encryptor.hpp"
+#include "logger_ostream.hpp"
 #include <stdexcept>
 #include <new>
 
@@ -42,7 +43,7 @@ void zlib_state::init(const encryptor& enc) {
 	if (err_code == Z_MEM_ERROR) {
 		throw std::bad_alloc();
 	} else if (err_code != Z_OK) {
-		aout(m_self) << "ERROR: " << m_deflate_strm.msg << std::endl;
+		log(m_self) << "ERROR: " << m_deflate_strm.msg << std::endl;
 		throw std::runtime_error(m_deflate_strm.msg);
 	}
 
@@ -50,7 +51,7 @@ void zlib_state::init(const encryptor& enc) {
 	if (err_code == Z_MEM_ERROR) {
 		throw std::bad_alloc();
 	} else if (err_code != Z_OK) {
-		aout(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
+		log(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
 		throw std::runtime_error(m_inflate_strm.msg);
 	}
 }
@@ -91,10 +92,10 @@ std::vector<char> zlib_state::compress(const std::vector<char>& in) {
 	m_deflate_strm.next_in = in_buf.data();
 	m_deflate_strm.avail_in = in_buf.size();
 	do {
-		Bytef buf[8192];
+		Bytef buf[BUFFER_SIZE];
 		m_deflate_strm.next_out = buf;
 		m_deflate_strm.avail_out = sizeof(buf);
-		deflate(&m_deflate_strm, Z_PARTIAL_FLUSH);
+		deflate(&m_deflate_strm, Z_SYNC_FLUSH);
 		size_t len = sizeof(buf) - m_deflate_strm.avail_out;
 		if (len > 0) {
 			out.insert(out.end(), buf, buf + len);
@@ -110,14 +111,14 @@ std::vector<char> zlib_state::uncompress(const std::vector<char>& in) {
 	m_inflate_strm.next_in = in_buf.data();
 	m_inflate_strm.avail_in = in_buf.size();
 	do {
-		Bytef buf[8192];
+		Bytef buf[BUFFER_SIZE];
 		m_inflate_strm.next_out = buf;
 		m_inflate_strm.avail_out = sizeof(buf);
-		auto err = inflate(&m_inflate_strm, Z_NO_FLUSH);
+		auto err = inflate(&m_inflate_strm, Z_SYNC_FLUSH);
 		if (err == Z_MEM_ERROR) {
 			throw std::bad_alloc();
 		} else if (err == Z_NEED_DICT || err == Z_DATA_ERROR) {
-			aout(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
+			log(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
 			break;
 		}
 

@@ -19,6 +19,7 @@
 #include "socks5_session.hpp"
 #include "aes_cfb128_encryptor.hpp"
 #include "zlib_encryptor.hpp"
+#include "logger_ostream.hpp"
 #include <random>
 
 namespace ranger { namespace proxy {
@@ -61,7 +62,12 @@ encryptor socks5_service_state::spawn_encryptor(uint32_t seed) const {
 }
 
 socks5_service::behavior_type
-socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self, int timeout, bool verbose) {
+socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self,
+					int timeout, bool verbose, const std::string& log) {
+	if (!log.empty()) {
+		logger_ostream::redirect(self->spawn<linked>(logger_impl, log));
+	}
+
 	std::random_device dev;
 	std::minstd_rand rd(dev());
 	return {
@@ -70,7 +76,7 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
 			if (!self->state.get_key().empty()) {
 				seed = rd();
 				if (verbose) {
-					aout(self) << "INFO: Initialization vector seed[" << seed << "]" << std::endl;
+					ranger::proxy::log(self) << "INFO: Initialization vector seed[" << seed << "]" << std::endl;
 				}
 
 				self->write(msg.handle, sizeof(seed), &seed);

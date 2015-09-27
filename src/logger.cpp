@@ -14,20 +14,34 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef RANGER_PROXY_COMMON_HPP
-#define RANGER_PROXY_COMMON_HPP
-
-#include <caf/all.hpp>
-#include <caf/io/all.hpp>
+#include "common.hpp"
+#include "logger.hpp"
+#include <time.h>
 
 namespace ranger { namespace proxy {
 
-const size_t BUFFER_SIZE = 256 * 1024;	// default: 256k
+void logger_state::init(const std::string& path) {
+	m_fout.reset(new std::ofstream(path));
+	m_buf.resize(64);
+}
 
-using namespace caf;
-using namespace caf::io;
-using namespace caf::io::experimental;
+void logger_state::write(const std::string& content) {
+	time_t now = time(nullptr);
+	while (strftime(m_buf.data(), m_buf.size(), "[%c] ", localtime(&now)) == 0) {
+		m_buf.resize(m_buf.size() * 2);
+	}
+
+	*m_fout << m_buf.data() << content << std::flush;
+}
+
+logger::behavior_type
+logger_impl(logger::stateful_pointer<logger_state> self, const std::string& path) {
+	self->state.init(path);
+	return {
+		[self] (const std::string& content) {
+			self->state.write(content);
+		}
+	};
+}
 
 } }
-
-#endif	// RANGER_PROXY_COMMON_HPP

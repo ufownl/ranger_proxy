@@ -23,6 +23,8 @@
 #include "user_table.cpp"
 #include "aes_cfb128_encryptor.cpp"
 #include "zlib_encryptor.cpp"
+#include "logger_ostream.cpp"
+#include "logger.cpp"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -30,7 +32,7 @@
 #include <string.h>
 
 TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false, std::string());
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
@@ -109,7 +111,7 @@ TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
 }
 
 TEST_F(echo_test, socks5_no_auth_conn_domainname) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false, std::string());
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
@@ -192,7 +194,7 @@ TEST_F(echo_test, socks5_no_auth_conn_domainname) {
 }
 
 TEST_F(ranger_proxy_test, socks5_no_auth_conn_ipv4_null) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false, std::string());
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
@@ -264,7 +266,7 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_ipv4_null) {
 }
 
 TEST_F(ranger_proxy_test, socks5_no_auth_conn_domainname_null) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false, std::string());
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
@@ -344,12 +346,12 @@ TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
 	std::string str = "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF";
 	std::vector<uint8_t> key(str.begin(), str.end());
 
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false, std::string());
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
 
-	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300);
+	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300, std::string());
 	scope_guard guard_gate([gate] {
 		caf::anon_send_exit(gate, caf::exit_reason::kill);
 	});
@@ -446,12 +448,12 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
 	std::string str = "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF";
 	std::vector<uint8_t> key(str.begin(), str.end());
 
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false, std::string());
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
 
-	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300);
+	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300, std::string());
 	scope_guard guard_gate([gate] {
 		caf::anon_send_exit(gate, caf::exit_reason::kill);
 	});
@@ -543,12 +545,12 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
 	std::string str = "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEF";
 	std::vector<uint8_t> key(str.begin(), str.end());
 
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false, std::string());
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
 
-	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300);
+	auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300, std::string());
 	scope_guard guard_gate([gate] {
 		caf::anon_send_exit(gate, caf::exit_reason::kill);
 	});
@@ -642,7 +644,7 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
 }
 
 TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false, std::string());
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
@@ -744,7 +746,7 @@ TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
 }
 
 TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, true);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, true, std::string());
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
@@ -844,7 +846,7 @@ TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
 }
 
 TEST_F(echo_test, socks5_username_auth_conn_domainname) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false, std::string());
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});
@@ -950,7 +952,7 @@ TEST_F(echo_test, socks5_username_auth_conn_domainname) {
 }
 
 TEST_F(ranger_proxy_test, socks5_username_auth_failed) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false);
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false, std::string());
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});

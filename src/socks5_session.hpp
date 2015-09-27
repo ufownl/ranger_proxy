@@ -32,8 +32,7 @@ using socks5_session =
 		reacts_to<error_atom, std::string>,
 		reacts_to<encrypt_atom, std::vector<char>>,
 		reacts_to<decrypt_atom, std::vector<char>>,
-		reacts_to<auth_atom, bool>,
-		reacts_to<close_atom>
+		reacts_to<auth_atom, bool>
 	>;
 
 class socks5_state {
@@ -58,7 +57,7 @@ public:
 	void handle_auth_result(bool result);
 
 private:
-	void write_to_local(std::vector<char> buf) const;
+	void write_to_local(std::vector<char> buf);
 	void write_raw(connection_handle hdl, std::vector<char> buf) const;
 
 	bool handle_select_method(std::vector<char> buf);
@@ -72,6 +71,7 @@ private:
 	connection_handle m_remote_hdl;
 	user_table m_user_tbl;
 	encryptor m_encryptor;
+	size_t m_encrypting {0};
 	bool m_verbose {false};
 	bool m_valid {false};
 	unpacker<uint8_t> m_unpacker;
