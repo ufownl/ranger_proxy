@@ -37,7 +37,7 @@ void gate_state::init(	connection_handle hdl, const std::string& host, uint16_t 
 	m_key = key;
 	m_zlib = zlib;
 
-	auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
+	auto helper = m_self->spawn<linked>(connect_helper_impl, &m_self->parent().backend());
 	m_self->send(helper, connect_atom::value, host, port);
 }
 

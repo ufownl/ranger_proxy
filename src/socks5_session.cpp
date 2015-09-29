@@ -339,7 +339,7 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
 			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 	}
 
-	auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
+	auto helper = m_self->spawn<linked>(connect_helper_impl, &m_self->parent().backend());
 	m_self->send(helper, connect_atom::value, inet_ntoa(addr), port);
 
 	m_valid = false;
@@ -395,7 +395,7 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		}
 
-		auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
+		auto helper = m_self->spawn<linked>(connect_helper_impl, &m_self->parent().backend());
 		m_self->send(helper, connect_atom::value, host, port);
 
 		m_valid = false;
