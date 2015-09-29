@@ -165,8 +165,12 @@ TEST_F(ranger_proxy_test, zlib_aes_cfb128_encryptor_256) {
 	std::vector<uint8_t> key(str.begin(), str.end());
 	std::vector<uint8_t> ivec;
 	
-	auto enc = caf::spawn(	ranger::proxy::zlib_encryptor_impl, 
-							caf::spawn(ranger::proxy::aes_cfb128_encryptor_impl, key, ivec));
+	auto zlib_enc = caf::spawn(ranger::proxy::aes_cfb128_encryptor_impl, key, ivec);
+	scope_guard guard_zlib_enc([zlib_enc] {
+		caf::anon_send_exit(zlib_enc, caf::exit_reason::kill);
+	});
+
+	auto enc = caf::spawn(ranger::proxy::zlib_encryptor_impl, zlib_enc);
 	scope_guard guard_enc([enc] {
 		caf::anon_send_exit(enc, caf::exit_reason::kill);
 	});

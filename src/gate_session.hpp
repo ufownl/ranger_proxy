@@ -34,7 +34,6 @@ using gate_session =
 class gate_state {
 public:
 	gate_state(gate_session::broker_pointer self);
-	~gate_state();
 
 	gate_state(const gate_state&) = delete;
 	gate_state& operator = (const gate_state&) = delete;

@@ -17,8 +17,6 @@
 #include "common.hpp"
 #include "socks5_service.hpp"
 #include "socks5_session.hpp"
-#include "aes_cfb128_encryptor.hpp"
-#include "zlib_encryptor.hpp"
 #include "logger_ostream.hpp"
 #include <random>
 
@@ -44,26 +42,15 @@ void socks5_service_state::set_zlib(bool zlib) {
 	m_zlib = zlib;
 }
 
-encryptor socks5_service_state::spawn_encryptor(uint32_t seed) const {
-	encryptor enc;
-	if (!m_key.empty()) {
-		std::minstd_rand rd(seed);
-		std::vector<uint8_t> ivec(128 / 8);
-		auto data = reinterpret_cast<uint32_t*>(ivec.data());
-		for (auto i = 0; i < 4; ++i) {
-			data[i] = rd();
-		}
-		enc = spawn(aes_cfb128_encryptor_impl, m_key, ivec);
-	}
-	if (m_zlib) {
-		enc = spawn(zlib_encryptor_impl, enc);
-	}
-	return enc;
+bool socks5_service_state::get_zlib() const {
+	return m_zlib;
 }
 
 socks5_service::behavior_type
 socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self,
 					int timeout, bool verbose, const std::string& log) {
+	self->trap_exit(true);
+
 	if (!log.empty()) {
 		logger_ostream::redirect(self->spawn<linked>(logger_impl, log));
 	}
@@ -86,7 +73,8 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
 			auto forked =
 				self->fork(	socks5_session_impl, msg.handle,
 							self->state.get_user_table(),
-							self->state.spawn_encryptor(seed),
+							self->state.get_key(), seed,
+							self->state.get_zlib(),
 							timeout, verbose);
 			self->link_to(forked);
 		},
@@ -129,6 +117,12 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
 		},
 		[self] (zlib_atom, bool zlib) {
 			self->state.set_zlib(zlib);
+		},
+		[self] (const exit_msg& msg) {
+			if (msg.reason != exit_reason::user_shutdown
+				&& msg.reason != exit_reason::unhandled_exception) {
+				self->quit(msg.reason);
+			}
 		}
 	};
 }

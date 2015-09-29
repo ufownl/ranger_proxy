@@ -53,8 +53,7 @@ public:
 	const std::vector<uint8_t>& get_key() const;
 
 	void set_zlib(bool zlib);
-
-	encryptor spawn_encryptor(uint32_t seed) const;
+	bool get_zlib() const;
 
 private:
 	user_table m_user_tbl;

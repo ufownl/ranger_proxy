@@ -28,10 +28,6 @@ zlib_state::zlib_state(encryptor::pointer self)
 }
 
 zlib_state::~zlib_state() {
-	if (m_encryptor) {
-		anon_send_exit(m_encryptor, exit_reason::user_shutdown);
-	}
-
 	deflateEnd(&m_deflate_strm);
 	inflateEnd(&m_inflate_strm);
 }

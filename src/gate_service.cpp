@@ -46,6 +46,8 @@ gate_service_state::host_info gate_service_state::query_host() {
 gate_service::behavior_type
 gate_service_impl(	gate_service::stateful_broker_pointer<gate_service_state> self,
 					int timeout, const std::string& log) {
+	self->trap_exit(true);
+
 	if (!log.empty()) {
 		logger_ostream::redirect(self->spawn<linked>(logger_impl, log));
 	}
@@ -96,6 +98,12 @@ gate_service_impl(	gate_service::stateful_broker_pointer<gate_service_state> sel
 			host.key = key;
 			host.zlib = zlib;
 			self->state.add_host(std::move(host));
+		},
+		[self] (const exit_msg& msg) {
+			if (msg.reason != exit_reason::user_shutdown
+				&& msg.reason != exit_reason::unhandled_exception) {
+				self->quit(msg.reason);
+			}
 		}
 	};
 }

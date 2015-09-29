@@ -38,14 +38,14 @@ using socks5_session =
 class socks5_state {
 public:
 	socks5_state(socks5_session::broker_pointer self);
-	~socks5_state();
 
 	socks5_state(const socks5_state&) = delete;
 	socks5_state& operator = (const socks5_state&) = delete;
 
 	void init(	connection_handle hdl,
 				const user_table& tbl,
-				const encryptor& enc,
+				const std::vector<uint8_t>& key,
+				uint32_t seed, bool zlib,
 				bool verbose);
 
 	void handle_new_data(const new_data_msg& msg);
@@ -81,8 +81,8 @@ private:
 
 socks5_session::behavior_type
 socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
-					connection_handle hdl, user_table tbl, encryptor enc,
-					int timeout, bool verbose);
+					connection_handle hdl, user_table tbl, const std::vector<uint8_t>& key,
+					uint32_t seed, bool zlib, int timeout, bool verbose);
 
 } }
 
