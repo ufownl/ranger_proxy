@@ -442,6 +442,7 @@ socks5_session::behavior_type
 socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
 					connection_handle hdl, user_table tbl, const std::vector<uint8_t>& key,
 					uint32_t seed, bool zlib, int timeout, bool verbose) {
+	self->trap_exit(true);
 	self->state.init(hdl, tbl, key, seed, zlib, verbose);
 	return {
 		[self] (const new_data_msg& msg) {
@@ -464,6 +465,16 @@ socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
 		},
 		[self] (auth_atom, bool result) {
 			self->state.handle_auth_result(result);
+		},
+		[self, hdl] (const exit_msg& msg) {
+			if (msg.reason == exit_reason::unhandled_exception) {
+				log(self) << "ERROR: Unhandled exception ["
+					<< self->remote_addr(hdl) << "]" << std::endl;
+			}
+
+			if (msg.reason != exit_reason::normal) {
+				self->quit(msg.reason);
+			}
 		},
 		after(std::chrono::seconds(timeout)) >> [self] {
 			self->quit(exit_reason::user_shutdown);

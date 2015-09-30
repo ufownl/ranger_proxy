@@ -100,7 +100,8 @@ gate_service_impl(	gate_service::stateful_broker_pointer<gate_service_state> sel
 			self->state.add_host(std::move(host));
 		},
 		[self] (const exit_msg& msg) {
-			if (msg.reason != exit_reason::user_shutdown
+			if (msg.reason != exit_reason::normal
+				&& msg.reason != exit_reason::user_shutdown
 				&& msg.reason != exit_reason::unhandled_exception) {
 				self->quit(msg.reason);
 			}
