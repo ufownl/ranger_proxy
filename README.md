@@ -20,6 +20,9 @@ Allowed options:
   -z [--zlib]         : enable zlib compression (default: disable)
   -t [--timeout] arg  : set timeout (default: 300)
   --log arg           : set log file path (default: empty)
+  --policy arg        : set scheduler policy (default: work_stealing)
+  --worker arg        : set number of workers (default: hardware_concurrency)
+  --throughput arg    : set max throughput of actor (default: unlimited)
   -G [--gate]         : run in gate mode
   --remote_host arg   : set remote host (only used in gate mode)
   --remote_port arg   : set remote port (only used in gate mode)
