@@ -17,6 +17,7 @@
 #include "common.hpp"
 #include "socks5_service.hpp"
 #include "gate_service.hpp"
+#include <caf/io/network/asio_multiplexer_impl.hpp>
 #include <caf/policy/work_sharing.hpp>
 #include <rapidxml.hpp>
 #include <rapidxml_utils.hpp>
@@ -90,6 +91,8 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 		std::cerr << "ERROR: Unsupported scheduler policy" << std::endl;
 		return 1;
 	}
+
+	set_middleman<network::asio_multiplexer>();
 
 	int ret = 0;
 	node = root->first_node("gate");
@@ -287,6 +290,8 @@ int bootstrap(int argc, char* argv[]) {
 			std::cerr << "ERROR: Unsupported scheduler policy" << std::endl;
 			return 1;
 		}
+		
+		set_middleman<network::asio_multiplexer>();
 
 		int ret = 0;
 		scoped_actor self;
@@ -321,6 +326,8 @@ int bootstrap(int argc, char* argv[]) {
 			std::cerr << "ERROR: Unsupported scheduler policy" << std::endl;
 			return 1;
 		}
+
+		set_middleman<network::asio_multiplexer>();
 
 		int ret = 0;
 		auto serv = spawn_io(socks5_service_impl, timeout, res.opts.count("verbose") > 0, log);
