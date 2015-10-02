@@ -18,8 +18,7 @@
 #include "socks5_session.hpp"
 #include "aes_cfb128_encryptor.hpp"
 #include "zlib_encryptor.hpp"
-#include "logger_ostream.hpp"
-#include <caf/io/network/asio_multiplexer.hpp>
+#include "async_connect.hpp"
 #include <arpa/inet.h>
 #include <chrono>
 #include <string.h>
@@ -136,32 +135,6 @@ void socks5_state::handle_auth_result(bool result) {
 		m_valid = false;
 		write_to_local({0x01, static_cast<char>(0xFF)});
 	}
-}
-
-void socks5_state::connect(const std::string& host, uint16_t port) {
-	using boost::asio::ip::tcp;
-	auto r = std::make_shared<tcp::resolver>(*m_self->parent().backend().pimpl());
-	tcp::resolver::query q(host, std::to_string(port));
-	using boost::system::error_code;
-	r->async_resolve(q, [this, host, port, r] (const error_code& ec, tcp::resolver::iterator it) {
-		if (ec) {
-			log(m_self) << "ERROR: " << ec.message() << std::endl;
-			m_self->send(m_self, error_atom::value, "could not resolve host: " + host);
-		} else {
-			auto fd = std::make_shared<network::default_socket>(*m_self->parent().backend().pimpl());
-			boost::asio::async_connect(*fd, it, [this, host, port, fd] (const error_code& ec, tcp::resolver::iterator it) {
-				if (ec) {
-					log(m_self) << "ERROR: " << ec.message() << std::endl;
-					m_self->send(m_self, error_atom::value, "could not connect to host: " + host + ":" + std::to_string(port));
-				} else {
-					auto hdl =
-						static_cast<network::asio_multiplexer&>(m_self->parent().backend())
-							.add_tcp_scribe(m_self, std::move(*fd));
-					m_self->send(m_self, ok_atom::value, hdl);
-				}
-			});
-		}
-	});
 }
 
 void socks5_state::write_to_local(std::vector<char> buf) {
@@ -365,7 +338,7 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
 			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 	}
 
-	connect(inet_ntoa(addr), port);
+	async_connect(m_self, inet_ntoa(addr), port);
 
 	m_valid = false;
 	port = htons(port);
@@ -420,7 +393,7 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		}
 
-		connect(host, port);
+		async_connect(m_self, host, port);
 
 		m_valid = false;
 		port = htons(port);

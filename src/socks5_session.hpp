@@ -57,7 +57,6 @@ public:
 	void handle_auth_result(bool result);
 
 private:
-	void connect(const std::string& host, uint16_t port);
 	void write_to_local(std::vector<char> buf);
 	void write_raw(connection_handle hdl, std::vector<char> buf) const;
 
