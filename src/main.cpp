@@ -71,7 +71,7 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 		policy = node->value();
 	}
 
-	size_t worker = std::max(std::thread::hardware_concurrency(), 4u);
+	size_t worker = std::thread::hardware_concurrency();
 	node = root->first_node("worker");
 	if (node) {
 		worker = atoi(node->value());
@@ -233,7 +233,7 @@ int bootstrap(int argc, char* argv[]) {
 	int timeout = 300;
 	std::string log;
 	std::string policy = "work_stealing";
-	size_t worker = std::max(std::thread::hardware_concurrency(), 4u);
+	size_t worker = std::thread::hardware_concurrency();
 	size_t throughput = std::numeric_limits<size_t>::max();
 	std::string remote_host;
 	uint16_t remote_port = 0;
