@@ -25,8 +25,6 @@ namespace ranger { namespace proxy {
 
 using gate_session =
 	minimal_client::extend<
-		reacts_to<ok_atom, connection_handle>,
-		reacts_to<error_atom, std::string>,
 		reacts_to<encrypt_atom, std::vector<char>>,
 		reacts_to<decrypt_atom, std::vector<char>>
 	>;
@@ -46,10 +44,10 @@ public:
 	void handle_encrypted_data(const std::vector<char>& buf);
 	void handle_decrypted_data(const std::vector<char>& buf);
 
+private:
 	void handle_connect_succ(connection_handle hdl);
 	void handle_connect_fail(const std::string& what);
 
-private:
 	const gate_session::broker_pointer m_self;
 	connection_handle m_local_hdl;
 	connection_handle m_remote_hdl;

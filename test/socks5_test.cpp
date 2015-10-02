@@ -19,7 +19,6 @@
 #include "socks5_session.cpp"
 #include "gate_service.cpp"
 #include "gate_session.cpp"
-#include "connect_helper.cpp"
 #include "user_table.cpp"
 #include "aes_cfb128_encryptor.cpp"
 #include "zlib_encryptor.cpp"

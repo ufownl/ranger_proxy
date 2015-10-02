@@ -28,8 +28,6 @@ namespace ranger { namespace proxy {
 
 using socks5_session =
 	minimal_client::extend<
-		reacts_to<ok_atom, connection_handle>,
-		reacts_to<error_atom, std::string>,
 		reacts_to<encrypt_atom, std::vector<char>>,
 		reacts_to<decrypt_atom, std::vector<char>>,
 		reacts_to<auth_atom, bool>
@@ -50,13 +48,15 @@ public:
 
 	void handle_new_data(const new_data_msg& msg);
 	void handle_conn_closed(const connection_closed_msg& msg);
-	void handle_connect_succ(connection_handle hdl);
-	void handle_connect_fail(const std::string& what);
 	void handle_encrypted_data(const std::vector<char>& buf);
 	void handle_decrypted_data(const std::vector<char>& buf);
 	void handle_auth_result(bool result);
 
 private:
+	void connect(const std::string& host, uint16_t port);
+	void handle_connect_succ(connection_handle hdl);
+	void handle_connect_fail(const std::string& what);
+
 	void write_to_local(std::vector<char> buf);
 	void write_raw(connection_handle hdl, std::vector<char> buf) const;
 

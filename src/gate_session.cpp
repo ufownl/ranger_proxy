@@ -16,10 +16,11 @@
 
 #include "common.hpp"
 #include "gate_session.hpp"
-#include "connect_helper.hpp"
 #include "aes_cfb128_encryptor.hpp"
 #include "zlib_encryptor.hpp"
 #include "logger_ostream.hpp"
+#include <caf/io/network/asio_multiplexer.hpp>
+#include <memory>
 #include <chrono>
 
 namespace ranger { namespace proxy {
@@ -37,8 +38,29 @@ void gate_state::init(	connection_handle hdl, const std::string& host, uint16_t 
 	m_key = key;
 	m_zlib = zlib;
 
-	auto helper = m_self->spawn<linked>(connect_helper_impl, &m_self->parent().backend());
-	m_self->send(helper, connect_atom::value, host, port);
+	using boost::asio::ip::tcp;
+	auto r = std::make_shared<tcp::resolver>(*m_self->parent().backend().pimpl());
+	tcp::resolver::query q(host, std::to_string(port));
+	using boost::system::error_code;
+	r->async_resolve(q, [this, host, port, r] (const error_code& ec, tcp::resolver::iterator it) {
+		if (ec) {
+			log(m_self) << "ERROR: " << ec.message() << std::endl;
+			handle_connect_fail("could not resolve host: " + host);
+		} else {
+			auto fd = std::make_shared<network::default_socket>(*m_self->parent().backend().pimpl());
+			boost::asio::async_connect(*fd, it, [this, host, port, fd] (const error_code& ec, tcp::resolver::iterator it) {
+				if (ec) {
+					log(m_self) << "ERROR: " << ec.message() << std::endl;
+					handle_connect_fail("could not connect to host: " + host + ":" + std::to_string(port));
+				} else {
+					auto hdl =
+						static_cast<network::asio_multiplexer&>(m_self->parent().backend())
+							.add_tcp_scribe(m_self, std::move(*fd));
+					handle_connect_succ(hdl);
+				}
+			});
+		}
+	});
 }
 
 void gate_state::handle_new_data(const new_data_msg& msg) {
@@ -158,12 +180,6 @@ gate_session_impl(	gate_session::stateful_broker_pointer<gate_state> self,
 		},
 		[self] (const connection_closed_msg& msg) {
 			self->state.handle_conn_closed(msg);
-		},
-		[self] (ok_atom, connection_handle hdl) {
-			self->state.handle_connect_succ(hdl);
-		},
-		[self] (error_atom, const std::string& what) {
-			self->state.handle_connect_fail(what);
 		},
 		[self] (encrypt_atom, const std::vector<char>& buf) {
 			self->state.handle_encrypted_data(buf);

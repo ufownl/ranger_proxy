@@ -16,10 +16,10 @@
 
 #include "common.hpp"
 #include "socks5_session.hpp"
-#include "connect_helper.hpp"
 #include "aes_cfb128_encryptor.hpp"
 #include "zlib_encryptor.hpp"
 #include "logger_ostream.hpp"
+#include <caf/io/network/asio_multiplexer.hpp>
 #include <arpa/inet.h>
 #include <chrono>
 #include <string.h>
@@ -89,18 +89,6 @@ void socks5_state::handle_conn_closed(const connection_closed_msg& msg) {
 	}
 }
 
-void socks5_state::handle_connect_succ(connection_handle hdl) {
-	if (m_conn_succ_handler) {
-		m_conn_succ_handler(hdl);
-	}
-}
-
-void socks5_state::handle_connect_fail(const std::string& what) {
-	if (m_conn_fail_handler) {
-		m_conn_fail_handler(what);
-	}
-}
-
 void socks5_state::handle_encrypted_data(const std::vector<char>& buf) {
 	write_raw(m_local_hdl, buf);
 
@@ -135,6 +123,44 @@ void socks5_state::handle_auth_result(bool result) {
 			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		m_valid = false;
 		write_to_local({0x01, static_cast<char>(0xFF)});
+	}
+}
+
+void socks5_state::connect(const std::string& host, uint16_t port) {
+	using boost::asio::ip::tcp;
+	auto r = std::make_shared<tcp::resolver>(*m_self->parent().backend().pimpl());
+	tcp::resolver::query q(host, std::to_string(port));
+	using boost::system::error_code;
+	r->async_resolve(q, [this, host, port, r] (const error_code& ec, tcp::resolver::iterator it) {
+		if (ec) {
+			log(m_self) << "ERROR: " << ec.message() << std::endl;
+			handle_connect_fail("could not resolve host: " + host);
+		} else {
+			auto fd = std::make_shared<network::default_socket>(*m_self->parent().backend().pimpl());
+			boost::asio::async_connect(*fd, it, [this, host, port, fd] (const error_code& ec, tcp::resolver::iterator it) {
+				if (ec) {
+					log(m_self) << "ERROR: " << ec.message() << std::endl;
+					handle_connect_fail("could not connect to host: " + host + ":" + std::to_string(port));
+				} else {
+					auto hdl =
+						static_cast<network::asio_multiplexer&>(m_self->parent().backend())
+							.add_tcp_scribe(m_self, std::move(*fd));
+					handle_connect_succ(hdl);
+				}
+			});
+		}
+	});
+}
+
+void socks5_state::handle_connect_succ(connection_handle hdl) {
+	if (m_conn_succ_handler) {
+		m_conn_succ_handler(hdl);
+	}
+}
+
+void socks5_state::handle_connect_fail(const std::string& what) {
+	if (m_conn_fail_handler) {
+		m_conn_fail_handler(what);
 	}
 }
 
@@ -339,8 +365,7 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
 			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 	}
 
-	auto helper = m_self->spawn<linked>(connect_helper_impl, &m_self->parent().backend());
-	m_self->send(helper, connect_atom::value, inet_ntoa(addr), port);
+	connect(inet_ntoa(addr), port);
 
 	m_valid = false;
 	port = htons(port);
@@ -395,8 +420,7 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		}
 
-		auto helper = m_self->spawn<linked>(connect_helper_impl, &m_self->parent().backend());
-		m_self->send(helper, connect_atom::value, host, port);
+		connect(host, port);
 
 		m_valid = false;
 		port = htons(port);
@@ -450,12 +474,6 @@ socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
 		},
 		[self] (const connection_closed_msg& msg) {
 			self->state.handle_conn_closed(msg);
-		},
-		[self] (ok_atom, connection_handle hdl) {
-			self->state.handle_connect_succ(hdl);
-		},
-		[self] (error_atom, const std::string& what) {
-			self->state.handle_connect_fail(what);
 		},
 		[self] (encrypt_atom, const std::vector<char>& buf) {
 			self->state.handle_encrypted_data(buf);
