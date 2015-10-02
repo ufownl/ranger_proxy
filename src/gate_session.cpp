@@ -45,18 +45,18 @@ void gate_state::init(	connection_handle hdl, const std::string& host, uint16_t 
 	r->async_resolve(q, [this, host, port, r] (const error_code& ec, tcp::resolver::iterator it) {
 		if (ec) {
 			log(m_self) << "ERROR: " << ec.message() << std::endl;
-			handle_connect_fail("could not resolve host: " + host);
+			m_self->send(m_self, error_atom::value, "could not resolve host: " + host);
 		} else {
 			auto fd = std::make_shared<network::default_socket>(*m_self->parent().backend().pimpl());
 			boost::asio::async_connect(*fd, it, [this, host, port, fd] (const error_code& ec, tcp::resolver::iterator it) {
 				if (ec) {
 					log(m_self) << "ERROR: " << ec.message() << std::endl;
-					handle_connect_fail("could not connect to host: " + host + ":" + std::to_string(port));
+					m_self->send(m_self, error_atom::value, "could not connect to host: " + host + ":" + std::to_string(port));
 				} else {
 					auto hdl =
 						static_cast<network::asio_multiplexer&>(m_self->parent().backend())
 							.add_tcp_scribe(m_self, std::move(*fd));
-					handle_connect_succ(hdl);
+					m_self->send(m_self, ok_atom::value, hdl);
 				}
 			});
 		}
@@ -180,6 +180,12 @@ gate_session_impl(	gate_session::stateful_broker_pointer<gate_state> self,
 		},
 		[self] (const connection_closed_msg& msg) {
 			self->state.handle_conn_closed(msg);
+		},
+		[self] (ok_atom, connection_handle hdl) {
+			self->state.handle_connect_succ(hdl);
+		},
+		[self] (error_atom, const std::string& what) {
+			self->state.handle_connect_fail(what);
 		},
 		[self] (encrypt_atom, const std::vector<char>& buf) {
 			self->state.handle_encrypted_data(buf);
