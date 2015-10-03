@@ -49,6 +49,7 @@ make install
   * Clang >= 3.2
 * [CMake](http://www.cmake.org)
 * [C++ Actor Framework](https://github.com/actor-framework/actor-framework) (develop分支)
+* [Boost.Asio](http://www.boost.org)
 * [Zlib](http://www.zlib.net)
 * [OpenSSL](http://www.openssl.org)
 
