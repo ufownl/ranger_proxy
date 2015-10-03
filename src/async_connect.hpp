@@ -19,8 +19,36 @@
 
 #include "logger_ostream.hpp"
 #include <caf/io/network/asio_multiplexer.hpp>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 namespace ranger { namespace proxy {
+
+template <class T>
+void async_connect(T self, const in_addr& addr, uint16_t port) {
+	using boost::asio::ip::tcp;
+	using boost::asio::ip::address_v4;
+	tcp::endpoint ep(address_v4(ntohl(addr.s_addr)), port);
+	auto fd =
+		std::make_shared<network::default_socket>(*self->parent().backend().pimpl());
+	using boost::system::error_code;
+	fd->async_connect(ep,
+		[self, addr, port, fd] (const error_code& ec) {
+			if (ec) {
+				log(self) << "ERROR: " << ec.message() << std::endl;
+				self->send(	self, error_atom::value,
+							"could not connect to host: " +
+							std::string(inet_ntoa(addr)) +
+							":" +std::to_string(port));
+			} else {
+				auto hdl =
+					static_cast<network::asio_multiplexer&>(self->parent().backend())
+						.add_tcp_scribe(self, std::move(*fd));
+				self->send(self, ok_atom::value, hdl);
+			}
+		}
+	);
+}
 
 template <class T>
 void async_connect(T self, const std::string& host, uint16_t port) {
@@ -28,25 +56,31 @@ void async_connect(T self, const std::string& host, uint16_t port) {
 	auto r = std::make_shared<tcp::resolver>(*self->parent().backend().pimpl());
 	tcp::resolver::query q(host, std::to_string(port));
 	using boost::system::error_code;
-	r->async_resolve(q, [self, host, port, r] (const error_code& ec, tcp::resolver::iterator it) {
-		if (ec) {
-			log(self) << "ERROR: " << ec.message() << std::endl;
-			self->send(self, error_atom::value, "could not resolve host: " + host);
-		} else {
-			auto fd = std::make_shared<network::default_socket>(*self->parent().backend().pimpl());
-			boost::asio::async_connect(*fd, it, [self, host, port, fd] (const error_code& ec, tcp::resolver::iterator it) {
-				if (ec) {
-					log(self) << "ERROR: " << ec.message() << std::endl;
-					self->send(self, error_atom::value, "could not connect to host: " + host + ":" + std::to_string(port));
-				} else {
-					auto hdl =
-						static_cast<network::asio_multiplexer&>(self->parent().backend())
-							.add_tcp_scribe(self, std::move(*fd));
-					self->send(self, ok_atom::value, hdl);
-				}
-			});
+	r->async_resolve(q,
+		[self, host, port, r] (const error_code& ec, tcp::resolver::iterator it) {
+			if (ec) {
+				log(self) << "ERROR: " << ec.message() << std::endl;
+				self->send(self, error_atom::value, "could not resolve host: " + host);
+			} else {
+				auto fd = std::make_shared<network::default_socket>(*self->parent().backend().pimpl());
+				boost::asio::async_connect(*fd, it,
+					[self, host, port, fd] (const error_code& ec, tcp::resolver::iterator it) {
+						if (ec) {
+							log(self) << "ERROR: " << ec.message() << std::endl;
+							self->send(	self, error_atom::value,
+										"could not connect to host: " +
+										host + ":" + std::to_string(port));
+						} else {
+							auto hdl =
+								static_cast<network::asio_multiplexer&>(self->parent().backend())
+									.add_tcp_scribe(self, std::move(*fd));
+							self->send(self, ok_atom::value, hdl);
+						}
+					}
+				);
+			}
 		}
-	});
+	);
 }
 
 } }

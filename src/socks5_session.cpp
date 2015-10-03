@@ -331,17 +331,14 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
 	memcpy(&addr, &buf[0], sizeof(addr));
 	uint16_t port;
 	memcpy(&port, &buf[4], sizeof(port));
-	port = ntohs(port);
 
 	if (m_verbose) {
-		log(m_self) << "INFO: connect to " << inet_ntoa(addr) << ":" << port << " ["
+		log(m_self) << "INFO: connect to " << inet_ntoa(addr) << ":" << ntohs(port) << " ["
 			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 	}
 
-	async_connect(m_self, inet_ntoa(addr), port);
-
+	async_connect(m_self, addr, ntohs(port));
 	m_valid = false;
-	port = htons(port);
 
 	m_conn_succ_handler = [this, addr, port] (connection_handle remote_hdl) {
 		m_self->assign_tcp_scribe(remote_hdl);
@@ -386,17 +383,14 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 		std::string host(buf.begin(), buf.begin() + buf.size() - 2);
 		uint16_t port;
 		memcpy(&port, &buf[buf.size() - 2], sizeof(port));
-		port = ntohs(port);
 
 		if (m_verbose) {
-			log(m_self) << "INFO: connect to " << host << ":" << port << " ["
+			log(m_self) << "INFO: connect to " << host << ":" << ntohs(port) << " ["
 				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		}
 
-		async_connect(m_self, host, port);
-
+		async_connect(m_self, host, ntohs(port));
 		m_valid = false;
-		port = htons(port);
 
 		m_conn_succ_handler = [this, host, port] (connection_handle remote_hdl) {
 			m_self->assign_tcp_scribe(remote_hdl);
