@@ -337,7 +337,7 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
 			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 	}
 
-	async_connect(m_self, addr, ntohs(port));
+	async_connect<socks5_session::broker_base>(m_self, addr, ntohs(port));
 	m_valid = false;
 
 	m_conn_succ_handler = [this, addr, port] (connection_handle remote_hdl) {
@@ -389,7 +389,7 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		}
 
-		async_connect(m_self, host, ntohs(port));
+		async_connect<socks5_session::broker_base>(m_self, host, ntohs(port));
 		m_valid = false;
 
 		m_conn_succ_handler = [this, host, port] (connection_handle remote_hdl) {

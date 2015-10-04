@@ -25,7 +25,7 @@
 namespace ranger { namespace proxy {
 
 template <class T>
-void async_connect(T self, const in_addr& addr, uint16_t port) {
+void async_connect(intrusive_ptr<T> self, const in_addr& addr, uint16_t port) {
 	std::string ep_info = std::string(inet_ntoa(addr)) + ":" + std::to_string(port);
 	using boost::asio::ip::tcp;
 	using boost::asio::ip::address_v4;
@@ -36,13 +36,13 @@ void async_connect(T self, const in_addr& addr, uint16_t port) {
 	fd->async_connect(ep,
 		[self, ep_info, fd] (const error_code& ec) {
 			if (ec) {
-				log(self) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
+				log(self.get()) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
 				self->send(	self, error_atom::value,
 							"could not connect to host: " + ep_info);
 			} else {
 				auto hdl =
 					static_cast<network::asio_multiplexer&>(self->parent().backend())
-						.add_tcp_scribe(self, std::move(*fd));
+						.add_tcp_scribe(self.get(), std::move(*fd));
 				self->send(self, ok_atom::value, hdl);
 			}
 		}
@@ -50,7 +50,7 @@ void async_connect(T self, const in_addr& addr, uint16_t port) {
 }
 
 template <class T>
-void async_connect(T self, const std::string& host, uint16_t port) {
+void async_connect(intrusive_ptr<T> self, const std::string& host, uint16_t port) {
 	std::string ep_info = host + ":" + std::to_string(port);
 	using boost::asio::ip::tcp;
 	auto r = std::make_shared<tcp::resolver>(*self->parent().backend().pimpl());
@@ -59,20 +59,20 @@ void async_connect(T self, const std::string& host, uint16_t port) {
 	r->async_resolve(q,
 		[self, ep_info, r] (const error_code& ec, tcp::resolver::iterator it) {
 			if (ec) {
-				log(self) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
+				log(self.get()) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
 				self->send(self, error_atom::value, "could not resolve host: " + ep_info);
 			} else {
 				auto fd = std::make_shared<network::default_socket>(*self->parent().backend().pimpl());
 				boost::asio::async_connect(*fd, it,
 					[self, ep_info, fd] (const error_code& ec, tcp::resolver::iterator it) {
 						if (ec) {
-							log(self) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
+							log(self.get()) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
 							self->send(	self, error_atom::value,
 										"could not connect to host: " + ep_info);
 						} else {
 							auto hdl =
 								static_cast<network::asio_multiplexer&>(self->parent().backend())
-									.add_tcp_scribe(self, std::move(*fd));
+									.add_tcp_scribe(self.get(), std::move(*fd));
 							self->send(self, ok_atom::value, hdl);
 						}
 					}

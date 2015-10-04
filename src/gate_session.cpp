@@ -37,7 +37,7 @@ void gate_state::init(	connection_handle hdl, const std::string& host, uint16_t 
 	m_key = key;
 	m_zlib = zlib;
 
-	async_connect(m_self, host, port);
+	async_connect<gate_session::broker_base>(m_self, host, port);
 }
 
 void gate_state::handle_new_data(const new_data_msg& msg) {
