@@ -21,28 +21,25 @@
 #include <caf/io/network/asio_multiplexer.hpp>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <memory>
 
 namespace ranger { namespace proxy {
 
 template <class T>
 void async_connect(intrusive_ptr<T> self, const in_addr& addr, uint16_t port) {
 	std::string ep_info = std::string(inet_ntoa(addr)) + ":" + std::to_string(port);
+	auto fd = std::make_shared<network::default_socket>(*self->parent().backend().pimpl());
 	using boost::asio::ip::tcp;
 	using boost::asio::ip::address_v4;
-	tcp::endpoint ep(address_v4(ntohl(addr.s_addr)), port);
-	auto fd =
-		std::make_shared<network::default_socket>(*self->parent().backend().pimpl());
 	using boost::system::error_code;
-	fd->async_connect(ep,
+	fd->async_connect(tcp::endpoint(address_v4(ntohl(addr.s_addr)), port),
 		[self, ep_info, fd] (const error_code& ec) {
 			if (ec) {
 				log(self.get()) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
-				self->send(	self, error_atom::value,
-							"could not connect to host: " + ep_info);
+				self->send(self, error_atom::value, "could not connect to host: " + ep_info);
 			} else {
-				auto hdl =
-					static_cast<network::asio_multiplexer&>(self->parent().backend())
-						.add_tcp_scribe(self.get(), std::move(*fd));
+				auto& backend = static_cast<network::asio_multiplexer&>(self->parent().backend());
+				auto hdl = backend.add_tcp_scribe(self.get(), std::move(*fd));
 				self->send(self, ok_atom::value, hdl);
 			}
 		}
@@ -54,9 +51,8 @@ void async_connect(intrusive_ptr<T> self, const std::string& host, uint16_t port
 	std::string ep_info = host + ":" + std::to_string(port);
 	using boost::asio::ip::tcp;
 	auto r = std::make_shared<tcp::resolver>(*self->parent().backend().pimpl());
-	tcp::resolver::query q(host, std::to_string(port));
 	using boost::system::error_code;
-	r->async_resolve(q,
+	r->async_resolve(tcp::resolver::query(host, std::to_string(port)),
 		[self, ep_info, r] (const error_code& ec, tcp::resolver::iterator it) {
 			if (ec) {
 				log(self.get()) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
@@ -67,12 +63,10 @@ void async_connect(intrusive_ptr<T> self, const std::string& host, uint16_t port
 					[self, ep_info, fd] (const error_code& ec, tcp::resolver::iterator it) {
 						if (ec) {
 							log(self.get()) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
-							self->send(	self, error_atom::value,
-										"could not connect to host: " + ep_info);
+							self->send(self, error_atom::value, "could not connect to host: " + ep_info);
 						} else {
-							auto hdl =
-								static_cast<network::asio_multiplexer&>(self->parent().backend())
-									.add_tcp_scribe(self.get(), std::move(*fd));
+							auto& backend = static_cast<network::asio_multiplexer&>(self->parent().backend());
+							auto hdl = backend.add_tcp_scribe(self.get(), std::move(*fd));
 							self->send(self, ok_atom::value, hdl);
 						}
 					}

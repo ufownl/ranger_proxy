@@ -19,7 +19,6 @@
 #include "aes_cfb128_encryptor.hpp"
 #include "zlib_encryptor.hpp"
 #include "async_connect.hpp"
-#include <memory>
 #include <chrono>
 
 namespace ranger { namespace proxy {
