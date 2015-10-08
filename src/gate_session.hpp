@@ -43,11 +43,10 @@ public:
 
 	void handle_new_data(const new_data_msg& msg);
 	void handle_conn_closed(const connection_closed_msg& msg);
-	void handle_encrypted_data(const std::vector<char>& buf);
-	void handle_decrypted_data(const std::vector<char>& buf);
-
 	void handle_connect_succ(connection_handle hdl);
 	void handle_connect_fail(const std::string& what);
+	void handle_encrypted_data(const std::vector<char>& buf);
+	void handle_decrypted_data(const std::vector<char>& buf);
 
 private:
 	const gate_session::broker_pointer m_self;

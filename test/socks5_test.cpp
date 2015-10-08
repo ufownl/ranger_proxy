@@ -19,7 +19,6 @@
 #include "socks5_session.cpp"
 #include "gate_service.cpp"
 #include "gate_session.cpp"
-#include "connect_helper.cpp"
 #include "user_table.cpp"
 #include "aes_cfb128_encryptor.cpp"
 #include "zlib_encryptor.cpp"
@@ -746,7 +745,7 @@ TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
 }
 
 TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
-	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, true, std::string());
+	auto socks5 = caf::io::spawn_io(ranger::proxy::socks5_service_impl, 300, false, std::string());
 	scope_guard guard_socks5([socks5] {
 		caf::anon_send_exit(socks5, caf::exit_reason::kill);
 	});

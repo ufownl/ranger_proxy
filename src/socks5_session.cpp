@@ -16,10 +16,9 @@
 
 #include "common.hpp"
 #include "socks5_session.hpp"
-#include "connect_helper.hpp"
 #include "aes_cfb128_encryptor.hpp"
 #include "zlib_encryptor.hpp"
-#include "logger_ostream.hpp"
+#include "async_connect.hpp"
 #include <arpa/inet.h>
 #include <chrono>
 #include <string.h>
@@ -332,18 +331,14 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
 	memcpy(&addr, &buf[0], sizeof(addr));
 	uint16_t port;
 	memcpy(&port, &buf[4], sizeof(port));
-	port = ntohs(port);
 
 	if (m_verbose) {
-		log(m_self) << "INFO: connect to " << inet_ntoa(addr) << ":" << port << " ["
+		log(m_self) << "INFO: connect to " << inet_ntoa(addr) << ":" << ntohs(port) << " ["
 			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 	}
 
-	auto helper = m_self->spawn<linked>(connect_helper_impl, &m_self->parent().backend());
-	m_self->send(helper, connect_atom::value, inet_ntoa(addr), port);
-
+	async_connect<socks5_session::broker_base>(m_self, addr, ntohs(port));
 	m_valid = false;
-	port = htons(port);
 
 	m_conn_succ_handler = [this, addr, port] (connection_handle remote_hdl) {
 		m_self->assign_tcp_scribe(remote_hdl);
@@ -388,18 +383,14 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 		std::string host(buf.begin(), buf.begin() + buf.size() - 2);
 		uint16_t port;
 		memcpy(&port, &buf[buf.size() - 2], sizeof(port));
-		port = ntohs(port);
 
 		if (m_verbose) {
-			log(m_self) << "INFO: connect to " << host << ":" << port << " ["
+			log(m_self) << "INFO: connect to " << host << ":" << ntohs(port) << " ["
 				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		}
 
-		auto helper = m_self->spawn<linked>(connect_helper_impl, &m_self->parent().backend());
-		m_self->send(helper, connect_atom::value, host, port);
-
+		async_connect<socks5_session::broker_base>(m_self, host, ntohs(port));
 		m_valid = false;
-		port = htons(port);
 
 		m_conn_succ_handler = [this, host, port] (connection_handle remote_hdl) {
 			m_self->assign_tcp_scribe(remote_hdl);

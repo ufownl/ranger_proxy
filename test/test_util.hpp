@@ -19,6 +19,7 @@
 
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
+#include <caf/io/network/asio_multiplexer_impl.hpp>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <string>
@@ -56,6 +57,10 @@ echo_service_impl(echo_service::broker_pointer self) {
 
 class ranger_proxy_test : public testing::Test {
 public:
+	static void SetUpTestCase() {
+		caf::io::set_middleman<caf::io::network::asio_multiplexer>();
+	}
+
 	static void TearDownTestCase() {
 		caf::shutdown();
 	}

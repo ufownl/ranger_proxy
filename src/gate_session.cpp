@@ -16,10 +16,9 @@
 
 #include "common.hpp"
 #include "gate_session.hpp"
-#include "connect_helper.hpp"
 #include "aes_cfb128_encryptor.hpp"
 #include "zlib_encryptor.hpp"
-#include "logger_ostream.hpp"
+#include "async_connect.hpp"
 #include <chrono>
 
 namespace ranger { namespace proxy {
@@ -37,8 +36,7 @@ void gate_state::init(	connection_handle hdl, const std::string& host, uint16_t 
 	m_key = key;
 	m_zlib = zlib;
 
-	auto helper = m_self->spawn<linked>(connect_helper_impl, &m_self->parent().backend());
-	m_self->send(helper, connect_atom::value, host, port);
+	async_connect<gate_session::broker_base>(m_self, host, port);
 }
 
 void gate_state::handle_new_data(const new_data_msg& msg) {
