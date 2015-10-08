@@ -1,0 +1,16 @@
+language: cpp
+
+compiler: gcc
+
+before_install:
+- sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+- sudo apt-get update -qq
+
+install:
+- sudo apt-get install g++-4.8 -y
+- export CXX="g++-4.8"
+- git clone --branch=develop https://github.com/actor-framework/actor-framework
+- cd actor-framework && ./configure --no-unit-tests --no-examples && make && sudo make install && cd ..
+- sudo apt-get install libboost-system-dev -y
+
+script: mkdir build && cd build && cmake .. && make && make test
