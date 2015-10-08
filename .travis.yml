@@ -2,15 +2,32 @@ language: cpp
 
 compiler: gcc
 
+env:
+    global:
+    - PREFIX=$HOME/prefix
+    - PATH=$PREFIX/bin:$PATH
+    - LD_LIBRARY_PATH=$PREFIX/lib:$LD_LIBRARY_PATH
+
+addons:
+    apt:
+        sources:
+        - ubuntu-toolchain-r-test
+        - kalakris-cmake
+        packages:
+        - g++-4.8
+        - cmake
+
 before_install:
-- sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
-- sudo apt-get update -qq
+- export CC="gcc-4.8"
+- export CXX="g++-4.8"
 
 install:
-- sudo apt-get install g++-4.8 -y
-- export CXX="g++-4.8"
-- git clone --branch=develop https://github.com/actor-framework/actor-framework
-- cd actor-framework && ./configure --no-unit-tests --no-examples && make && sudo make install && cd ..
-- sudo apt-get install libboost-system-dev -y
+# CAF
+- git clone --branch=develop https://github.com/actor-framework/actor-framework.git
+- cd actor-framework && ./configure --prefix=$PREFIX --no-unit-tests --no-examples && make && make install && cd ..
+# Boost
+- wget http://iweb.dl.sourceforge.net/project/boost/boost/1.59.0/boost_1_59_0.tar.gz
+- tar xzf boost_1_59_0.tar.gz
+- cd boost_1_59_0 && ./bootstrap.sh --prefix=$PREFIX --with-libraries=system && ./b2 -d0 install && cd ..
 
-script: mkdir build && cd build && cmake .. && make && make test
+script: mkdir build && cd build && cmake -DCAF_ROOT_DIR=$PREFIX -DBOOST_ROOT=$PREFIX .. && make && make test
