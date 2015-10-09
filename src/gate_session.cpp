@@ -16,10 +16,9 @@
 
 #include "common.hpp"
 #include "gate_session.hpp"
-#include "connect_helper.hpp"
 #include "aes_cfb128_encryptor.hpp"
 #include "zlib_encryptor.hpp"
-#include "logger_ostream.hpp"
+#include "async_connect.hpp"
 #include <chrono>
 
 namespace ranger { namespace proxy {
@@ -27,12 +26,6 @@ namespace ranger { namespace proxy {
 gate_state::gate_state(gate_session::broker_pointer self)
 	: m_self(self) {
 	// nop
-}
-
-gate_state::~gate_state() {
-	if (m_encryptor) {
-		anon_send_exit(m_encryptor, exit_reason::user_shutdown);
-	}
 }
 
 void gate_state::init(	connection_handle hdl, const std::string& host, uint16_t port,
@@ -43,8 +36,7 @@ void gate_state::init(	connection_handle hdl, const std::string& host, uint16_t 
 	m_key = key;
 	m_zlib = zlib;
 
-	auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
-	m_self->send(helper, connect_atom::value, host, port);
+	async_connect<gate_session::broker_base>(m_self, host, port);
 }
 
 void gate_state::handle_new_data(const new_data_msg& msg) {
@@ -80,7 +72,7 @@ void gate_state::handle_new_data(const new_data_msg& msg) {
 
 void gate_state::handle_conn_closed(const connection_closed_msg& msg) {
 	if (msg.handle == m_local_hdl || m_decrypting == 0) {
-		m_self->quit();
+		m_self->quit(exit_reason::user_shutdown);
 	}
 }
 
@@ -96,7 +88,7 @@ void gate_state::handle_decrypted_data(const std::vector<char>& buf) {
 	m_self->flush(m_local_hdl);
 
 	if (--m_decrypting == 0 && !m_self->valid(m_remote_hdl)) {
-		m_self->quit();
+		m_self->quit(exit_reason::user_shutdown);
 	}
 }
 
@@ -107,7 +99,7 @@ void gate_state::handle_connect_succ(connection_handle hdl) {
 
 	if (m_key.empty()) {
 		if (m_zlib) {
-			m_encryptor = spawn(zlib_encryptor_impl, m_encryptor);
+			m_encryptor = m_self->spawn<linked>(zlib_encryptor_impl, m_encryptor);
 		}
 
 		if (!m_buf.empty()) {
@@ -133,10 +125,10 @@ void gate_state::handle_connect_succ(connection_handle hdl) {
 			for (auto i = 0; i < 4; ++i) {
 				data[i] = rd();
 			}
-			m_encryptor = spawn(aes_cfb128_encryptor_impl, m_key, ivec);
+			m_encryptor = m_self->spawn<linked>(aes_cfb128_encryptor_impl, m_key, ivec);
 
 			if (m_zlib) {
-				m_encryptor = spawn(zlib_encryptor_impl, m_encryptor);
+				m_encryptor = m_self->spawn<linked>(zlib_encryptor_impl, m_encryptor);
 			}
 
 			if (!m_buf.empty()) {
@@ -150,7 +142,7 @@ void gate_state::handle_connect_succ(connection_handle hdl) {
 
 void gate_state::handle_connect_fail(const std::string& what) {
 	log(m_self) << "ERROR: " << what << std::endl;
-	m_self->quit();
+	m_self->quit(exit_reason::user_shutdown);
 }
 
 gate_session::behavior_type
@@ -178,7 +170,7 @@ gate_session_impl(	gate_session::stateful_broker_pointer<gate_state> self,
 			self->state.handle_decrypted_data(buf);
 		},
 		after(std::chrono::seconds(timeout)) >> [self] {
-			self->quit();
+			self->quit(exit_reason::user_shutdown);
 		}
 	};
 }

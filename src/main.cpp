@@ -17,8 +17,11 @@
 #include "common.hpp"
 #include "socks5_service.hpp"
 #include "gate_service.hpp"
+#include <caf/io/network/asio_multiplexer_impl.hpp>
+#include <caf/policy/work_sharing.hpp>
 #include <rapidxml.hpp>
 #include <rapidxml_utils.hpp>
+#include <thread>
 #include <unistd.h>
 #include <string.h>
 
@@ -38,7 +41,6 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 		}
 	}
 
-	int ret = 0;
 	std::string host;
 	auto node = root->first_node("host");
 	if (node) {
@@ -63,6 +65,36 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 		log = node->value();
 	}
 
+	std::string policy = "work_stealing";
+	node = root->first_node("policy");
+	if (node) {
+		policy = node->value();
+	}
+
+	size_t worker = std::thread::hardware_concurrency();
+	node = root->first_node("worker");
+	if (node) {
+		worker = atoi(node->value());
+	}
+
+	size_t throughput = std::numeric_limits<size_t>::max();
+	node = root->first_node("throughput");
+	if (node) {
+		throughput = atoi(node->value());
+	}
+
+	if (policy == "work_stealing") {
+		set_scheduler<policy::work_stealing>(worker, throughput);
+	} else if (policy == "work_sharing") {
+		set_scheduler<policy::work_sharing>(worker, throughput);
+	} else {
+		std::cerr << "ERROR: Unsupported scheduler policy" << std::endl;
+		return 1;
+	}
+
+	set_middleman<network::asio_multiplexer>();
+
+	int ret = 0;
 	node = root->first_node("gate");
 	if (node && atoi(node->value())) {
 		auto serv = spawn_io(gate_service_impl, timeout, log);
@@ -200,6 +232,9 @@ int bootstrap(int argc, char* argv[]) {
 	std::string key_src;
 	int timeout = 300;
 	std::string log;
+	std::string policy = "work_stealing";
+	size_t worker = std::thread::hardware_concurrency();
+	size_t throughput = std::numeric_limits<size_t>::max();
 	std::string remote_host;
 	uint16_t remote_port = 0;
 	std::string config;
@@ -213,6 +248,9 @@ int bootstrap(int argc, char* argv[]) {
 		{"zlib,z", "enable zlib compression (default: disable)"},
 		{"timeout,t", "set timeout (default: 300)", timeout},
 		{"log", "set log file path (default: empty)", log},
+		{"policy", "set scheduler policy (default: work_stealing)", policy},
+		{"worker", "set number of workers (default: hardware_concurrency)", worker},
+		{"throughput", "set max throughput of actor (default: unlimited)", throughput},
 		{"gate,G", "run in gate mode"},
 		{"remote_host", "set remote host (only used in gate mode)", remote_host},
 		{"remote_port", "set remote port (only used in gate mode)", remote_port},
@@ -241,11 +279,21 @@ int bootstrap(int argc, char* argv[]) {
 		}
 	}
 
-	int ret = 0;
-
 	if (res.opts.count("config") > 0) {
-		ret = bootstrap_with_config(config, res.opts.count("verbose") > 0);
+		return bootstrap_with_config(config, res.opts.count("verbose") > 0);
 	} else if (res.opts.count("gate") > 0) {
+		if (policy == "work_stealing") {
+			set_scheduler<policy::work_stealing>(worker, throughput);
+		} else if (policy == "work_sharing") {
+			set_scheduler<policy::work_sharing>(worker, throughput);
+		} else {
+			std::cerr << "ERROR: Unsupported scheduler policy" << std::endl;
+			return 1;
+		}
+		
+		set_middleman<network::asio_multiplexer>();
+
+		int ret = 0;
 		scoped_actor self;
 		auto serv = spawn_io(gate_service_impl, timeout, log);
 		std::vector<uint8_t> key(key_src.begin(), key_src.end());
@@ -267,7 +315,21 @@ int bootstrap(int argc, char* argv[]) {
 		if (ret) {
 			anon_send_exit(serv, exit_reason::kill);
 		}
+
+		return ret;
 	} else {
+		if (policy == "work_stealing") {
+			set_scheduler<policy::work_stealing>(worker, throughput);
+		} else if (policy == "work_sharing") {
+			set_scheduler<policy::work_sharing>(worker, throughput);
+		} else {
+			std::cerr << "ERROR: Unsupported scheduler policy" << std::endl;
+			return 1;
+		}
+
+		set_middleman<network::asio_multiplexer>();
+
+		int ret = 0;
 		auto serv = spawn_io(socks5_service_impl, timeout, res.opts.count("verbose") > 0, log);
 		scoped_actor self;
 		if (!username.empty()) {
@@ -300,9 +362,9 @@ int bootstrap(int argc, char* argv[]) {
 		if (ret) {
 			anon_send_exit(serv, exit_reason::kill);
 		}
-	}
 
-	return ret;
+		return ret;
+	}
 }
 
 int main(int argc, char* argv[]) {

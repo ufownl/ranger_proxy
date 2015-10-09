@@ -28,10 +28,6 @@ zlib_state::zlib_state(encryptor::pointer self)
 }
 
 zlib_state::~zlib_state() {
-	if (m_encryptor) {
-		anon_send_exit(m_encryptor, exit_reason::user_shutdown);
-	}
-
 	deflateEnd(&m_deflate_strm);
 	inflateEnd(&m_inflate_strm);
 }
@@ -119,7 +115,7 @@ std::vector<char> zlib_state::uncompress(const std::vector<char>& in) {
 			throw std::bad_alloc();
 		} else if (err == Z_NEED_DICT || err == Z_DATA_ERROR) {
 			log(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
-			break;
+			throw std::runtime_error(m_inflate_strm.msg);
 		}
 
 		size_t len = sizeof(buf) - m_inflate_strm.avail_out;

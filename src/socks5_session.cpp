@@ -16,8 +16,9 @@
 
 #include "common.hpp"
 #include "socks5_session.hpp"
-#include "connect_helper.hpp"
-#include "logger_ostream.hpp"
+#include "aes_cfb128_encryptor.hpp"
+#include "zlib_encryptor.hpp"
+#include "async_connect.hpp"
 #include <arpa/inet.h>
 #include <chrono>
 #include <string.h>
@@ -29,20 +30,26 @@ socks5_state::socks5_state(socks5_session::broker_pointer self)
 	// nop
 }
 
-socks5_state::~socks5_state() {
-	if (m_encryptor) {
-		anon_send_exit(m_encryptor, exit_reason::user_shutdown);
-	}
-}
-
 void socks5_state::init(connection_handle hdl,
 						const user_table& tbl,
-						const encryptor& enc,
+						const std::vector<uint8_t>& key,
+						uint32_t seed, bool zlib,
 						bool verbose) {
 	m_local_hdl = hdl;
 	m_self->configure_read(m_local_hdl, receive_policy::at_most(BUFFER_SIZE));
 	m_user_tbl = tbl;
-	m_encryptor = enc;
+	if (!key.empty()) {
+		std::minstd_rand rd(seed);
+		std::vector<uint8_t> ivec(128 / 8);
+		auto data = reinterpret_cast<uint32_t*>(ivec.data());
+		for (auto i = 0; i < 4; ++i) {
+			data[i] = rd();
+		}
+		m_encryptor = m_self->spawn<linked>(aes_cfb128_encryptor_impl, key, ivec);
+	}
+	if (zlib) {
+		m_encryptor = m_self->spawn<linked>(zlib_encryptor_impl, m_encryptor);
+	}
 	m_verbose = verbose;
 	m_valid = true;
 	m_unpacker.expect(2, [this] (std::vector<char> buf) {
@@ -54,7 +61,7 @@ void socks5_state::handle_new_data(const new_data_msg& msg) {
 	if (!m_valid) {
 		log(m_self) << "ERROR: Current state is invalid ["
 			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
-		m_self->quit();
+		m_self->quit(exit_reason::user_shutdown);
 	} else if (m_encryptor) {
 		if (msg.handle == m_local_hdl) {
 			m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
@@ -77,7 +84,7 @@ void socks5_state::handle_new_data(const new_data_msg& msg) {
 
 void socks5_state::handle_conn_closed(const connection_closed_msg& msg) {
 	if (msg.handle == m_local_hdl || m_encrypting == 0) {
-		m_self->quit();
+		m_self->quit(exit_reason::user_shutdown);
 	}
 }
 
@@ -99,7 +106,7 @@ void socks5_state::handle_encrypted_data(const std::vector<char>& buf) {
 	if (--m_encrypting == 0
 		&& (!m_valid
 			|| (!m_remote_hdl.invalid() && !m_self->valid(m_remote_hdl)))) {
-		m_self->quit();
+		m_self->quit(exit_reason::user_shutdown);
 	}
 }
 
@@ -149,7 +156,7 @@ void socks5_state::write_raw(connection_handle hdl, std::vector<char> buf) const
 	m_self->flush(hdl);
 
 	if (!m_valid && m_encrypting == 0) {
-		m_self->quit();
+		m_self->quit(exit_reason::user_shutdown);
 	}
 }
 
@@ -157,7 +164,7 @@ bool socks5_state::handle_select_method(std::vector<char> buf) {
 	if (static_cast<uint8_t>(buf[0]) != 0x05) {
 		log(m_self) << "ERROR: Protocol version mismatch ["
 			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
-		m_self->quit();
+		m_self->quit(exit_reason::user_shutdown);
 		return false;
 	}
 
@@ -228,7 +235,7 @@ bool socks5_state::handle_username_auth(std::vector<char> buf) {
 	if (static_cast<uint8_t>(buf[0]) != 0x01) {
 		log(m_self) << "ERROR: Protocol version mismatch ["
 			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
-		m_self->quit();
+		m_self->quit(exit_reason::user_shutdown);
 		return false;
 	}
 
@@ -274,7 +281,7 @@ bool socks5_state::handle_request_header(std::vector<char> buf) {
 	if (static_cast<uint8_t>(buf[0]) != 0x05) {
 		log(m_self) << "ERROR: Protocol version mismatch ["
 			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
-		m_self->quit();
+		m_self->quit(exit_reason::user_shutdown);
 		return false;
 	}
 
@@ -324,18 +331,14 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
 	memcpy(&addr, &buf[0], sizeof(addr));
 	uint16_t port;
 	memcpy(&port, &buf[4], sizeof(port));
-	port = ntohs(port);
 
 	if (m_verbose) {
-		log(m_self) << "INFO: connect to " << inet_ntoa(addr) << ":" << port << " ["
+		log(m_self) << "INFO: connect to " << inet_ntoa(addr) << ":" << ntohs(port) << " ["
 			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 	}
 
-	auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
-	m_self->send(helper, connect_atom::value, inet_ntoa(addr), port);
-
+	async_connect<socks5_session::broker_base>(m_self, addr, ntohs(port));
 	m_valid = false;
-	port = htons(port);
 
 	m_conn_succ_handler = [this, addr, port] (connection_handle remote_hdl) {
 		m_self->assign_tcp_scribe(remote_hdl);
@@ -380,18 +383,14 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 		std::string host(buf.begin(), buf.begin() + buf.size() - 2);
 		uint16_t port;
 		memcpy(&port, &buf[buf.size() - 2], sizeof(port));
-		port = ntohs(port);
 
 		if (m_verbose) {
-			log(m_self) << "INFO: connect to " << host << ":" << port << " ["
+			log(m_self) << "INFO: connect to " << host << ":" << ntohs(port) << " ["
 				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		}
 
-		auto helper = m_self->spawn(connect_helper_impl, &m_self->parent().backend());
-		m_self->send(helper, connect_atom::value, host, port);
-
+		async_connect<socks5_session::broker_base>(m_self, host, ntohs(port));
 		m_valid = false;
-		port = htons(port);
 
 		m_conn_succ_handler = [this, host, port] (connection_handle remote_hdl) {
 			m_self->assign_tcp_scribe(remote_hdl);
@@ -432,9 +431,10 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 
 socks5_session::behavior_type
 socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
-					connection_handle hdl, user_table tbl, encryptor enc,
-					int timeout, bool verbose) {
-	self->state.init(hdl, tbl, enc, verbose);
+					connection_handle hdl, user_table tbl, const std::vector<uint8_t>& key,
+					uint32_t seed, bool zlib, int timeout, bool verbose) {
+	self->trap_exit(true);
+	self->state.init(hdl, tbl, key, seed, zlib, verbose);
 	return {
 		[self] (const new_data_msg& msg) {
 			self->state.handle_new_data(msg);
@@ -457,8 +457,18 @@ socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
 		[self] (auth_atom, bool result) {
 			self->state.handle_auth_result(result);
 		},
+		[self, hdl] (const exit_msg& msg) {
+			if (msg.reason == exit_reason::unhandled_exception) {
+				log(self) << "ERROR: Unhandled exception ["
+					<< self->remote_addr(hdl) << "]" << std::endl;
+			}
+
+			if (msg.reason != exit_reason::normal) {
+				self->quit(msg.reason);
+			}
+		},
 		after(std::chrono::seconds(timeout)) >> [self] {
-			self->quit();
+			self->quit(exit_reason::user_shutdown);
 		}
 	};
 }
