@@ -85,6 +85,8 @@ void socks5_state::handle_new_data(const new_data_msg& msg) {
 void socks5_state::handle_conn_closed(const connection_closed_msg& msg) {
 	if (msg.handle == m_local_hdl || m_encrypting == 0) {
 		m_self->quit(exit_reason::user_shutdown);
+	} else {
+		m_valid = false;
 	}
 }
 
@@ -101,13 +103,8 @@ void socks5_state::handle_connect_fail(const std::string& what) {
 }
 
 void socks5_state::handle_encrypted_data(const std::vector<char>& buf) {
+	--m_encrypting;
 	write_raw(m_local_hdl, buf);
-
-	if (--m_encrypting == 0
-		&& (!m_valid
-			|| (!m_remote_hdl.invalid() && !m_self->valid(m_remote_hdl)))) {
-		m_self->quit(exit_reason::user_shutdown);
-	}
 }
 
 void socks5_state::handle_decrypted_data(const std::vector<char>& buf) {
