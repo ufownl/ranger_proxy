@@ -26,8 +26,10 @@ void logger_ostream::redirect(logger lgr) {
 }
 
 logger_ostream::logger_ostream(actor self)
-	: m_self(self) {
-	// nop
+	: m_self(self)
+	, m_content("[actor") {
+	using std::to_string;
+	m_content += to_string(self.id()) + "] ";
 }
 
 logger_ostream& logger_ostream::write(const std::string& content) {
