@@ -368,7 +368,13 @@ int bootstrap(int argc, char* argv[]) {
 }
 
 int main(int argc, char* argv[]) {
-	int ret = bootstrap(argc, argv);
+	int ret = 0;
+	try {
+		ret = bootstrap(argc, argv);
+	} catch (const std::invalid_argument& e) {
+		std::cerr << "ERROR: " << e.what() << std::endl;
+		ret = 1;
+	}
 	await_all_actors_done();
 	shutdown();
 	return ret;
