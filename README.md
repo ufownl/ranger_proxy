@@ -1,6 +1,7 @@
 # ranger_proxy
 [![Join the chat at https://gitter.im/ufownl/ranger_proxy](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/ufownl/ranger_proxy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Build Status](https://travis-ci.org/ufownl/ranger_proxy.svg?branch=master)](https://travis-ci.org/ufownl/ranger_proxy)
+[![Coverity Scan](https://scan.coverity.com/projects/6642/badge.svg)](https://scan.coverity.com/projects/ufownl-ranger_proxy)
 
 **ranger_proxy**是一个SOCKS5代理服务器的实现。
 
