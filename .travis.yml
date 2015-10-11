@@ -22,13 +22,14 @@ addons:
             name: "ufownl/ranger_proxy"
             description: "Build submitted via Travis CI"
         notification_email: ufownl@gmail.com
-        build_command_prepend: "mkdir build && cd build && cmake -DCAF_ROOT_DIR=$PREFIX -DBOOST_ROOT=$PREFIX .."
+        build_command_prepend: "cmake -DCAF_ROOT_DIR=$PREFIX -DBOOST_ROOT=$PREFIX .."
         build_command: "make"
         branch_pattern: coverity_scan
 
 before_install:
 - export CC="gcc-4.8"
 - export CXX="g++-4.8"
+- cd contrib
 
 install:
 # CAF
@@ -39,4 +40,9 @@ install:
 - tar xzf boost_1_59_0.tar.gz
 - cd boost_1_59_0 && ./bootstrap.sh --prefix=$PREFIX --with-libraries=system && ./b2 -d0 install && cd ..
 
-script: if [ $COVERITY_SCAN_BRANCH != 1 ]; then mkdir build && cd build && cmake -DCAF_ROOT_DIR=$PREFIX -DBOOST_ROOT=$PREFIX .. && make && make test; fi
+before_script:
+- cd ..
+- mkdir build
+- cd build
+
+script: if [ $COVERITY_SCAN_BRANCH != 1 ]; then cmake -DCAF_ROOT_DIR=$PREFIX -DBOOST_ROOT=$PREFIX .. && make && make test; fi
