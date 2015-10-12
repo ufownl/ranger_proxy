@@ -18,6 +18,7 @@
 #define RANGER_PROXY_GATE_SESSION_HPP
 
 #include <vector>
+#include "deadline_timer.hpp"
 #include "encryptor.hpp"
 #include "unpacker.hpp"
 
@@ -50,7 +51,7 @@ public:
 
 private:
 	const gate_session::broker_pointer m_self;
-	actor m_timer;
+	deadline_timer m_timer;
 	connection_handle m_local_hdl;
 	connection_handle m_remote_hdl;
 	std::vector<uint8_t> m_key;

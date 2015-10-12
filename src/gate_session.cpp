@@ -16,7 +16,6 @@
 
 #include "common.hpp"
 #include "gate_session.hpp"
-#include "deadline_timer.hpp"
 #include "aes_cfb128_encryptor.hpp"
 #include "zlib_encryptor.hpp"
 #include "async_connect.hpp"
@@ -44,7 +43,7 @@ void gate_state::init(	connection_handle hdl, const std::string& host, uint16_t 
 
 void gate_state::handle_new_data(const new_data_msg& msg) {
 	if (msg.handle == m_local_hdl) {
-		m_self->send(m_timer, 0);
+		m_self->send(m_timer, reset_atom::value);
 		if (m_remote_hdl.invalid()) {
 			m_buf.insert(m_buf.end(), msg.buf.begin(), msg.buf.end());
 		} else {

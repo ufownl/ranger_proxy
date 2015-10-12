@@ -19,9 +19,10 @@
 
 namespace ranger { namespace proxy {
 
-behavior deadline_timer_impl(event_based_actor* self, int timeout) {
+deadline_timer::behavior_type
+deadline_timer_impl(deadline_timer::pointer self, int timeout) {
 	return {
-		others >> [] {
+		[] (reset_atom) {
 			// nop
 		},
 		after(std::chrono::seconds(timeout)) >> [self] {

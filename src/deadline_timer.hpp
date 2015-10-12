@@ -19,7 +19,12 @@
 
 namespace ranger { namespace proxy {
 
-behavior deadline_timer_impl(event_based_actor* self, int timeout);
+using reset_atom = atom_constant<atom("reset")>;
+
+using deadline_timer = typed_actor<reacts_to<reset_atom>>;
+
+deadline_timer::behavior_type
+deadline_timer_impl(deadline_timer::pointer self, int timeout);
 
 } }
 
