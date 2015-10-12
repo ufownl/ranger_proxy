@@ -88,6 +88,14 @@ void socks5_state::handle_new_data(const new_data_msg& msg) {
 }
 
 void socks5_state::handle_conn_closed(const connection_closed_msg& msg) {
+	if (m_verbose) {
+		if (msg.handle == m_local_hdl) {
+			log(m_self) << "INFO: Local connection closed" << std::endl;
+		} else {
+			log(m_self) << "INFO: Remote connection closed" << std::endl;
+		}
+	}
+
 	if (msg.handle == m_local_hdl || m_encrypting == 0) {
 		m_self->quit(exit_reason::user_shutdown);
 	} else {
