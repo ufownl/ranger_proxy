@@ -46,7 +46,7 @@ public:
 				const user_table& tbl,
 				const std::vector<uint8_t>& key,
 				uint32_t seed, bool zlib,
-				bool verbose);
+				int timeout, bool verbose);
 
 	void handle_new_data(const new_data_msg& msg);
 	void handle_conn_closed(const connection_closed_msg& msg);
@@ -67,6 +67,7 @@ private:
 	bool handle_domainname_request(std::vector<char> buf);
 
 	const socks5_session::broker_pointer m_self;
+	actor m_timer;
 	connection_handle m_local_hdl;
 	connection_handle m_remote_hdl;
 	user_table m_user_tbl;

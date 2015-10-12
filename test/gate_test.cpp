@@ -17,6 +17,7 @@
 #include "test_util.hpp"
 #include "gate_service.cpp"
 #include "gate_session.cpp"
+#include "deadline_timer.cpp"
 #include "aes_cfb128_encryptor.cpp"
 #include "zlib_encryptor.cpp"
 #include "logger_ostream.cpp"

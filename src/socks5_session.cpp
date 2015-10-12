@@ -16,6 +16,7 @@
 
 #include "common.hpp"
 #include "socks5_session.hpp"
+#include "deadline_timer.hpp"
 #include "aes_cfb128_encryptor.hpp"
 #include "zlib_encryptor.hpp"
 #include "async_connect.hpp"
@@ -34,7 +35,8 @@ void socks5_state::init(connection_handle hdl,
 						const user_table& tbl,
 						const std::vector<uint8_t>& key,
 						uint32_t seed, bool zlib,
-						bool verbose) {
+						int timeout, bool verbose) {
+	m_timer = m_self->spawn<linked>(deadline_timer_impl, timeout);
 	m_local_hdl = hdl;
 	m_self->configure_read(m_local_hdl, receive_policy::at_most(BUFFER_SIZE));
 	m_user_tbl = tbl;
@@ -62,20 +64,21 @@ void socks5_state::handle_new_data(const new_data_msg& msg) {
 		log(m_self) << "ERROR: Current state is invalid ["
 			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
 		m_self->quit(exit_reason::user_shutdown);
-	} else if (m_encryptor) {
-		if (msg.handle == m_local_hdl) {
+	} else if (msg.handle == m_local_hdl) {
+		m_self->send(m_timer, 0);
+		if (m_encryptor) {
 			m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
 		} else {
-			m_self->send(m_encryptor, encrypt_atom::value, msg.buf);
-			++m_encrypting;
-		}
-	} else {
-		if (msg.handle == m_local_hdl) {
 			if (m_remote_hdl.invalid()) {
 				m_unpacker.append(msg.buf);
 			} else if (m_self->valid(m_remote_hdl)) {
 				write_raw(m_remote_hdl, msg.buf);
 			}
+		}
+	} else {
+		if (m_encryptor) {
+			m_self->send(m_encryptor, encrypt_atom::value, msg.buf);
+			++m_encrypting;
 		} else {
 			write_raw(m_local_hdl, msg.buf);
 		}
@@ -431,7 +434,7 @@ socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
 					connection_handle hdl, user_table tbl, const std::vector<uint8_t>& key,
 					uint32_t seed, bool zlib, int timeout, bool verbose) {
 	self->trap_exit(true);
-	self->state.init(hdl, tbl, key, seed, zlib, verbose);
+	self->state.init(hdl, tbl, key, seed, zlib, timeout, verbose);
 	return {
 		[self] (const new_data_msg& msg) {
 			self->state.handle_new_data(msg);
@@ -463,9 +466,6 @@ socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
 			if (msg.reason != exit_reason::normal) {
 				self->quit(msg.reason);
 			}
-		},
-		after(std::chrono::seconds(timeout)) >> [self] {
-			self->quit(exit_reason::user_shutdown);
 		}
 	};
 }
