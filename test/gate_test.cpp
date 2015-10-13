@@ -52,14 +52,14 @@ TEST_F(echo_test, gate_echo) {
 	ASSERT_NE(-1, fd);
 	scope_guard guard_fd([fd] { close(fd); });
 
-	sockaddr_in sin;
+	sockaddr_in sin = {0};
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = inet_addr("127.0.0.1");
 	sin.sin_port = htons(port);
 	ASSERT_EQ(0, connect(fd, reinterpret_cast<sockaddr*>(&sin), sizeof(sin)));
 
 	char buf[] = "Hello, world!";
-	send(fd, buf, sizeof(buf), 0);
+	ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 	memset(buf, 0, sizeof(buf));
 	ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
 	EXPECT_STREQ("Hello, world!", buf);
@@ -111,14 +111,14 @@ TEST_F(echo_test, gate_chain_echo) {
 	ASSERT_NE(-1, fd);
 	scope_guard guard_fd([fd] { close(fd); });
 
-	sockaddr_in sin;
+	sockaddr_in sin = {0};
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = inet_addr("127.0.0.1");
 	sin.sin_port = htons(port);
 	ASSERT_EQ(0, connect(fd, reinterpret_cast<sockaddr*>(&sin), sizeof(sin)));
 
 	char buf[] = "Hello, world!";
-	send(fd, buf, sizeof(buf), 0);
+	ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 	memset(buf, 0, sizeof(buf));
 	ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
 	EXPECT_STREQ("Hello, world!", buf);
@@ -151,7 +151,7 @@ TEST_F(ranger_proxy_test, gate_null) {
 		ASSERT_NE(-1, fd);
 		scope_guard guard_fd([fd] { close(fd); });
 
-		sockaddr_in sin;
+		sockaddr_in sin = {0};
 		sin.sin_family = AF_INET;
 		sin.sin_addr.s_addr = inet_addr("127.0.0.1");
 		sin.sin_port = htons(port);
