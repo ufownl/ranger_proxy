@@ -18,6 +18,7 @@
 #define RANGER_PROXY_GATE_SESSION_HPP
 
 #include <vector>
+#include "deadline_timer.hpp"
 #include "encryptor.hpp"
 #include "unpacker.hpp"
 
@@ -39,7 +40,7 @@ public:
 	gate_state& operator = (const gate_state&) = delete;
 
 	void init(	connection_handle hdl, const std::string& host, uint16_t port,
-				const std::vector<uint8_t>& key, bool zlib);
+				const std::vector<uint8_t>& key, bool zlib, int timeout);
 
 	void handle_new_data(const new_data_msg& msg);
 	void handle_conn_closed(const connection_closed_msg& msg);
@@ -50,6 +51,7 @@ public:
 
 private:
 	const gate_session::broker_pointer m_self;
+	deadline_timer m_timer;
 	connection_handle m_local_hdl;
 	connection_handle m_remote_hdl;
 	std::vector<uint8_t> m_key;

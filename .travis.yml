@@ -4,6 +4,7 @@ compiler: gcc
 
 env:
     global:
+    - secure: "DAomLkN4jbqjxjWYAWocbZ/m2ztaWDNoYS8TY0MXr490gWzVuiIYWmprx5DD0k0PB1N3XN0IxgXwLxDKo0rxsQMzTzbgbEeRuowbvsNivUrZxBDFfCa4IBLn5w72dqqhgGyDjHhqsiY1jd6aC4DHa+uAKh4fWIBAgk72ZvBWhnGUIxaUcMiL5nlA/z7cnKtOLB/wUngVk1kbEzKwD5QJ567PEDeSIZYeLV7cYZ+dYny3ScYVGVCe0h9sZxo/JbJFMl6CmcROK8oQp/O+0RO4ShDs58C3/HnZsD5hxNtPclqSzfg/ECb5fqpsfCJTUhPp07sl5KYIg99E38g5jagI2IyK8ZtPinYbkZM1pvDrLZKqrKwZAjOkYTwvvwM1PFixbBu4JgzjxBmVRSa5rizKdp7Fl9UiZc9jd7n0gSUONeX2k9uYM4jkwHmkNcQUYcUfWKL/RDeRJ869rON8tl4He+FLuxpcdMtkQCnF+yC1yKpTOHe0uZy0vvAQ7bz44EVpq2+Hi2+7GoaVZV5wrnxSXvuTBvZZP1sI6IHFoeeNzgRrxbqxow3+021jHZxMT8TXN3HuAVeadn2ENouzq//Ud+lqwAYhkTdVYMQdNg5uhqlMLab3+P40Tn7PRyVHLJDrPsaTaZXaWB/KkyvT/UeR7k1vQcnZiHSz1i+MoGFpxJU="
     - PREFIX=$HOME/prefix
     - PATH=$PREFIX/bin:$PATH
     - LD_LIBRARY_PATH=$PREFIX/lib:$LD_LIBRARY_PATH
@@ -16,10 +17,19 @@ addons:
         packages:
         - g++-4.8
         - cmake
+    coverity_scan:
+        project:
+            name: "ufownl/ranger_proxy"
+            description: "Build submitted via Travis CI"
+        notification_email: ufownl@gmail.com
+        build_command_prepend: "cmake -DCAF_ROOT_DIR=$PREFIX -DBOOST_ROOT=$PREFIX .."
+        build_command: "make"
+        branch_pattern: coverity_scan
 
 before_install:
 - export CC="gcc-4.8"
 - export CXX="g++-4.8"
+- cd contrib
 
 install:
 # CAF
@@ -30,4 +40,9 @@ install:
 - tar xzf boost_1_59_0.tar.gz
 - cd boost_1_59_0 && ./bootstrap.sh --prefix=$PREFIX --with-libraries=system && ./b2 -d0 install && cd ..
 
-script: mkdir build && cd build && cmake -DCAF_ROOT_DIR=$PREFIX -DBOOST_ROOT=$PREFIX .. && make && make test
+before_script:
+- cd ..
+- mkdir build
+- cd build
+
+script: if [ $COVERITY_SCAN_BRANCH != 1 ]; then cmake -DCAF_ROOT_DIR=$PREFIX -DBOOST_ROOT=$PREFIX .. && make && make test; fi

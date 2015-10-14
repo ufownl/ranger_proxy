@@ -34,7 +34,8 @@ void socks5_state::init(connection_handle hdl,
 						const user_table& tbl,
 						const std::vector<uint8_t>& key,
 						uint32_t seed, bool zlib,
-						bool verbose) {
+						int timeout, bool verbose) {
+	m_timer = m_self->spawn<linked>(deadline_timer_impl, timeout);
 	m_local_hdl = hdl;
 	m_self->configure_read(m_local_hdl, receive_policy::at_most(BUFFER_SIZE));
 	m_user_tbl = tbl;
@@ -60,22 +61,26 @@ void socks5_state::init(connection_handle hdl,
 void socks5_state::handle_new_data(const new_data_msg& msg) {
 	if (!m_valid) {
 		log(m_self) << "ERROR: Current state is invalid ["
-			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+			<< m_self->remote_addr(m_local_hdl) << ":"
+			<< m_self->remote_port(m_local_hdl) << " -> "
+			<< m_self->remote_addr(m_remote_hdl) << ":"
+			<< m_self->remote_port(m_remote_hdl) << "]" << std::endl;
 		m_self->quit(exit_reason::user_shutdown);
-	} else if (m_encryptor) {
-		if (msg.handle == m_local_hdl) {
+	} else if (msg.handle == m_local_hdl) {
+		m_self->send(m_timer, reset_atom::value);
+		if (m_encryptor) {
 			m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
 		} else {
-			m_self->send(m_encryptor, encrypt_atom::value, msg.buf);
-			++m_encrypting;
-		}
-	} else {
-		if (msg.handle == m_local_hdl) {
 			if (m_remote_hdl.invalid()) {
 				m_unpacker.append(msg.buf);
 			} else if (m_self->valid(m_remote_hdl)) {
 				write_raw(m_remote_hdl, msg.buf);
 			}
+		}
+	} else {
+		if (m_encryptor) {
+			m_self->send(m_encryptor, encrypt_atom::value, msg.buf);
+			++m_encrypting;
 		} else {
 			write_raw(m_local_hdl, msg.buf);
 		}
@@ -83,8 +88,18 @@ void socks5_state::handle_new_data(const new_data_msg& msg) {
 }
 
 void socks5_state::handle_conn_closed(const connection_closed_msg& msg) {
+	if (m_verbose) {
+		if (msg.handle == m_local_hdl) {
+			log(m_self) << "INFO: Local connection closed" << std::endl;
+		} else {
+			log(m_self) << "INFO: Remote connection closed" << std::endl;
+		}
+	}
+
 	if (msg.handle == m_local_hdl || m_encrypting == 0) {
 		m_self->quit(exit_reason::user_shutdown);
+	} else {
+		m_valid = false;
 	}
 }
 
@@ -101,13 +116,8 @@ void socks5_state::handle_connect_fail(const std::string& what) {
 }
 
 void socks5_state::handle_encrypted_data(const std::vector<char>& buf) {
+	--m_encrypting;
 	write_raw(m_local_hdl, buf);
-
-	if (--m_encrypting == 0
-		&& (!m_valid
-			|| (!m_remote_hdl.invalid() && !m_self->valid(m_remote_hdl)))) {
-		m_self->quit(exit_reason::user_shutdown);
-	}
 }
 
 void socks5_state::handle_decrypted_data(const std::vector<char>& buf) {
@@ -122,7 +132,8 @@ void socks5_state::handle_auth_result(bool result) {
 	if (result) {
 		if (m_verbose) {
 			log(m_self) << "INFO: Auth successfully ["
-				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+				<< m_self->remote_addr(m_local_hdl) << ":"
+				<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 		}
 
 		write_to_local({0x01, 0x00});
@@ -131,9 +142,20 @@ void socks5_state::handle_auth_result(bool result) {
 		});
 	} else {
 		log(m_self) << "ERROR: Username or password error ["
-			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+			<< m_self->remote_addr(m_local_hdl) << ":"
+			<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 		m_valid = false;
 		write_to_local({0x01, static_cast<char>(0xFF)});
+	}
+}
+
+void socks5_state::handle_user_shutdown(const actor_addr& source) {
+	if (m_verbose && m_timer == source) {
+		log(m_self) << "INFO: Session timeout ["
+			<< m_self->remote_addr(m_local_hdl) << ":"
+			<< m_self->remote_port(m_local_hdl) << " -> "
+			<< m_self->remote_addr(m_remote_hdl) << ":"
+			<< m_self->remote_port(m_remote_hdl) << "]" << std::endl;
 	}
 }
 
@@ -163,7 +185,8 @@ void socks5_state::write_raw(connection_handle hdl, std::vector<char> buf) const
 bool socks5_state::handle_select_method(std::vector<char> buf) {
 	if (static_cast<uint8_t>(buf[0]) != 0x05) {
 		log(m_self) << "ERROR: Protocol version mismatch ["
-			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+			<< m_self->remote_addr(m_local_hdl) << ":"
+			<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 		m_self->quit(exit_reason::user_shutdown);
 		return false;
 	}
@@ -171,7 +194,8 @@ bool socks5_state::handle_select_method(std::vector<char> buf) {
 	uint8_t nmethods = buf[1];
 	if (nmethods == 0) {
 		log(m_self) << "ERROR: NO ACCEPTABLE METHODS ["
-			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+			<< m_self->remote_addr(m_local_hdl) << ":"
+			<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 		m_valid = false;
 		write_to_local({0x05, static_cast<char>(0xFF)});
 		return false;
@@ -180,13 +204,15 @@ bool socks5_state::handle_select_method(std::vector<char> buf) {
 	if (m_verbose) {
 		log(m_self) << "INFO: recv select method header"
 			<< " (nmethods == " << nmethods << ") ["
-			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+			<< m_self->remote_addr(m_local_hdl) << ":"
+			<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 	}
 
 	m_unpacker.expect(nmethods, [this] (std::vector<char> buf) {
 		if (m_verbose) {
 			log(m_self) << "INFO: recv select method data ["
-				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+				<< m_self->remote_addr(m_local_hdl) << ":"
+				<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 			for (auto i = 0; i < buf.size(); ++i) {
 				log(m_self) << "INFO: method[" << i << "] = "
 					<< static_cast<unsigned int>(buf[i]) << std::endl;
@@ -203,7 +229,8 @@ bool socks5_state::handle_select_method(std::vector<char> buf) {
 			if (method == 0x00) {
 				if (m_verbose) {
 					log(m_self) << "INFO: Select method [NO AUTHENTICATION REQUIRED] ["
-						<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+						<< m_self->remote_addr(m_local_hdl) << ":"
+						<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 				}
 				m_unpacker.expect(4, [this] (std::vector<char> buf) {
 					return handle_request_header(std::move(buf));
@@ -211,7 +238,8 @@ bool socks5_state::handle_select_method(std::vector<char> buf) {
 			} else {
 				if (m_verbose) {
 					log(m_self) << "INFO: Select method [USERNAME/PASSWORD] ["
-						<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+						<< m_self->remote_addr(m_local_hdl) << ":"
+						<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 				}
 				m_unpacker.expect(2, [this] (std::vector<char> buf) {
 					return handle_username_auth(std::move(buf));
@@ -219,7 +247,8 @@ bool socks5_state::handle_select_method(std::vector<char> buf) {
 			}
 		} else {
 			log(m_self) << "ERROR: NO ACCEPTABLE METHODS ["
-				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+				<< m_self->remote_addr(m_local_hdl) << ":"
+				<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 			m_valid = false;
 			write_to_local({0x05, static_cast<char>(0xFF)});
 			return false;
@@ -234,7 +263,8 @@ bool socks5_state::handle_select_method(std::vector<char> buf) {
 bool socks5_state::handle_username_auth(std::vector<char> buf) {
 	if (static_cast<uint8_t>(buf[0]) != 0x01) {
 		log(m_self) << "ERROR: Protocol version mismatch ["
-			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+			<< m_self->remote_addr(m_local_hdl) << ":"
+			<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 		m_self->quit(exit_reason::user_shutdown);
 		return false;
 	}
@@ -242,7 +272,8 @@ bool socks5_state::handle_username_auth(std::vector<char> buf) {
 	uint8_t len = buf[1];
 	if (len == 0) {
 		log(m_self) << "ERROR: Username is empty ["
-			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+			<< m_self->remote_addr(m_local_hdl) << ":"
+			<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 		m_valid = false;
 		write_to_local({0x01, static_cast<char>(0xFF)});
 		return false;
@@ -256,7 +287,8 @@ bool socks5_state::handle_username_auth(std::vector<char> buf) {
 				std::string password(buf.begin(), buf.end());
 				if (m_verbose) {
 					log(m_self) << "INFO: Auth [" << username << " & " << password << "] ["
-						<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+						<< m_self->remote_addr(m_local_hdl) << ":"
+						<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 				}
 
 				m_self->send(m_user_tbl, auth_atom::value, username, password);
@@ -265,7 +297,8 @@ bool socks5_state::handle_username_auth(std::vector<char> buf) {
 		} else {
 			if (m_verbose) {
 				log(m_self) << "INFO: Auth [" << username << " & [empty]] ["
-					<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+					<< m_self->remote_addr(m_local_hdl) << ":"
+					<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 			}
 
 			m_self->send(m_user_tbl, auth_atom::value, username, std::string());
@@ -280,19 +313,22 @@ bool socks5_state::handle_username_auth(std::vector<char> buf) {
 bool socks5_state::handle_request_header(std::vector<char> buf) {
 	if (static_cast<uint8_t>(buf[0]) != 0x05) {
 		log(m_self) << "ERROR: Protocol version mismatch ["
-			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+			<< m_self->remote_addr(m_local_hdl) << ":"
+			<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 		m_self->quit(exit_reason::user_shutdown);
 		return false;
 	}
 
 	if (m_verbose) {
 		log(m_self) << "INFO: recv request header ["
-			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+			<< m_self->remote_addr(m_local_hdl) << ":"
+			<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 	}
 
 	if (static_cast<uint8_t>(buf[1]) != 0x01) {
 		log(m_self) << "ERROR: Command not supported ["
-			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+			<< m_self->remote_addr(m_local_hdl) << ":"
+			<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 		m_valid = false;
 		write_to_local({0x05, 0x07, 0x00, 0x01});
 		return false;
@@ -302,7 +338,8 @@ bool socks5_state::handle_request_header(std::vector<char> buf) {
 	case 0x01:	// IPV4
 		if (m_verbose) {
 			log(m_self) << "INFO: CMD[connect] ADDR[ipv4] ["
-				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+				<< m_self->remote_addr(m_local_hdl) << ":"
+				<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 		}
 		m_unpacker.expect(6, [this] (std::vector<char> buf) {
 			return handle_ipv4_request(std::move(buf));
@@ -311,7 +348,8 @@ bool socks5_state::handle_request_header(std::vector<char> buf) {
 	case 0x03:	// DOMAINNAME
 		if (m_verbose) {
 			log(m_self) << "INFO: CMD[connect] ADDR[domainname] ["
-				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+				<< m_self->remote_addr(m_local_hdl) << ":"
+				<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 		}
 		m_unpacker.expect(1, [this] (std::vector<char> buf) {
 			return handle_domainname_request(std::move(buf));
@@ -320,7 +358,8 @@ bool socks5_state::handle_request_header(std::vector<char> buf) {
 	}
 
 	log(m_self) << "ERROR: Address type not supported ["
-		<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+		<< m_self->remote_addr(m_local_hdl) << ":"
+		<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 	m_valid = false;
 	write_to_local({0x05, 0x08, 0x00, 0x01});
 	return false;
@@ -334,7 +373,8 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
 
 	if (m_verbose) {
 		log(m_self) << "INFO: connect to " << inet_ntoa(addr) << ":" << ntohs(port) << " ["
-			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+			<< m_self->remote_addr(m_local_hdl) << ":"
+			<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 	}
 
 	async_connect<socks5_session::broker_base>(m_self, addr, ntohs(port));
@@ -347,7 +387,10 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
 
 		if (m_verbose) {
 			log(m_self) << "INFO: " << inet_ntoa(addr) << ":" << ntohs(port) << " connected ["
-				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+				<< m_self->remote_addr(m_local_hdl) << ":"
+				<< m_self->remote_port(m_local_hdl) << " -> "
+				<< m_self->remote_addr(m_remote_hdl) << ":"
+				<< m_self->remote_port(m_remote_hdl) << "]" << std::endl;
 		}
 		
 		std::vector<char> buf = {0x05, 0x00, 0x00, 0x01};
@@ -364,7 +407,8 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
 
 	m_conn_fail_handler = [this, addr, port] (const std::string& what) {
 		log(m_self) << "ERROR: " << what << " ["
-			<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+			<< m_self->remote_addr(m_local_hdl) << ":"
+			<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 		std::vector<char> buf = {0x05, 0x05, 0x00, 0x01};
 		buf.insert(	buf.end(),
 					reinterpret_cast<const char*>(&addr),
@@ -386,7 +430,8 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 
 		if (m_verbose) {
 			log(m_self) << "INFO: connect to " << host << ":" << ntohs(port) << " ["
-				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+				<< m_self->remote_addr(m_local_hdl) << ":"
+				<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 		}
 
 		async_connect<socks5_session::broker_base>(m_self, host, ntohs(port));
@@ -399,7 +444,10 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 
 			if (m_verbose) {
 				log(m_self) << "INFO: " << host << ":" << ntohs(port) << " connected ["
-					<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+					<< m_self->remote_addr(m_local_hdl) << ":"
+					<< m_self->remote_port(m_local_hdl) << " -> "
+					<< m_self->remote_addr(m_remote_hdl) << ":"
+					<< m_self->remote_port(m_remote_hdl) << "]" << std::endl;
 			}
 
 			std::vector<char> buf = {0x05, 0x00, 0x00, 0x03, static_cast<char>(host.size())};
@@ -414,7 +462,8 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 
 		m_conn_fail_handler = [this, host, port] (const std::string& what) {
 			log(m_self) << "ERROR: " << what << " ["
-				<< m_self->remote_addr(m_local_hdl) << "]" << std::endl;
+				<< m_self->remote_addr(m_local_hdl) << ":"
+				<< m_self->remote_port(m_local_hdl) << "]" << std::endl;
 			std::vector<char> buf = {0x05, 0x05, 0x00, 0x03, static_cast<char>(host.size())};
 			buf.insert(	buf.end(), host.begin(), host.end());
 			buf.insert(	buf.end(),
@@ -434,7 +483,7 @@ socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
 					connection_handle hdl, user_table tbl, const std::vector<uint8_t>& key,
 					uint32_t seed, bool zlib, int timeout, bool verbose) {
 	self->trap_exit(true);
-	self->state.init(hdl, tbl, key, seed, zlib, verbose);
+	self->state.init(hdl, tbl, key, seed, zlib, timeout, verbose);
 	return {
 		[self] (const new_data_msg& msg) {
 			self->state.handle_new_data(msg);
@@ -458,17 +507,20 @@ socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
 			self->state.handle_auth_result(result);
 		},
 		[self, hdl] (const exit_msg& msg) {
-			if (msg.reason == exit_reason::unhandled_exception) {
+			switch (msg.reason) {
+			case exit_reason::unhandled_exception:
 				log(self) << "ERROR: Unhandled exception ["
-					<< self->remote_addr(hdl) << "]" << std::endl;
+					<< self->remote_addr(hdl) << ":"
+					<< self->remote_port(hdl) << "]" << std::endl;
+				break;
+			case exit_reason::user_shutdown:
+				self->state.handle_user_shutdown(msg.source);
+				break;
 			}
 
 			if (msg.reason != exit_reason::normal) {
 				self->quit(msg.reason);
 			}
-		},
-		after(std::chrono::seconds(timeout)) >> [self] {
-			self->quit(exit_reason::user_shutdown);
 		}
 	};
 }

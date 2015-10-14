@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include "deadline_timer.hpp"
 #include "user_table.hpp"
 #include "encryptor.hpp"
 #include "unpacker.hpp"
@@ -46,7 +47,7 @@ public:
 				const user_table& tbl,
 				const std::vector<uint8_t>& key,
 				uint32_t seed, bool zlib,
-				bool verbose);
+				int timeout, bool verbose);
 
 	void handle_new_data(const new_data_msg& msg);
 	void handle_conn_closed(const connection_closed_msg& msg);
@@ -55,6 +56,7 @@ public:
 	void handle_encrypted_data(const std::vector<char>& buf);
 	void handle_decrypted_data(const std::vector<char>& buf);
 	void handle_auth_result(bool result);
+	void handle_user_shutdown(const actor_addr& source);
 
 private:
 	void write_to_local(std::vector<char> buf);
@@ -67,6 +69,7 @@ private:
 	bool handle_domainname_request(std::vector<char> buf);
 
 	const socks5_session::broker_pointer m_self;
+	deadline_timer m_timer;
 	connection_handle m_local_hdl;
 	connection_handle m_remote_hdl;
 	user_table m_user_tbl;

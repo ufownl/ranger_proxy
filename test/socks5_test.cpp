@@ -19,6 +19,7 @@
 #include "socks5_session.cpp"
 #include "gate_service.cpp"
 #include "gate_session.cpp"
+#include "deadline_timer.cpp"
 #include "user_table.cpp"
 #include "aes_cfb128_encryptor.cpp"
 #include "zlib_encryptor.cpp"
@@ -54,7 +55,7 @@ TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
 	ASSERT_NE(-1, fd);
 	scope_guard guard_fd([fd] { close(fd); });
 
-	sockaddr_in sin;
+	sockaddr_in sin = {0};
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = inet_addr("127.0.0.1");
 	sin.sin_port = htons(port);
@@ -63,7 +64,7 @@ TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
 	{
 		// version identifier/method selection message
 		uint8_t buf[] = {0x05, 0x01, 0x00};
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 	}
 
 	{
@@ -77,10 +78,10 @@ TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
 	{
 		// request
 		uint8_t buf[] = {0x05, 0x01, 0x00, 0x01};
-		send(fd, buf, sizeof(buf), 0);
-		send(fd, &sin.sin_addr, sizeof(sin.sin_addr), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
+		ASSERT_EQ(sizeof(sin.sin_addr), send(fd, &sin.sin_addr, sizeof(sin.sin_addr), 0));
 		uint16_t remote_port = htons(m_port);
-		send(fd, &remote_port, sizeof(remote_port), 0);
+		ASSERT_EQ(sizeof(remote_port), send(fd, &remote_port, sizeof(remote_port), 0));
 	}
 
 	{
@@ -102,7 +103,7 @@ TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
 	{
 		// test data
 		char buf[] = "Hello, world!";
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 		memset(buf, 0, sizeof(buf));
 		ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
 		EXPECT_STREQ("Hello, world!", buf);
@@ -133,7 +134,7 @@ TEST_F(echo_test, socks5_no_auth_conn_domainname) {
 	ASSERT_NE(-1, fd);
 	scope_guard guard_fd([fd] { close(fd); });
 
-	sockaddr_in sin;
+	sockaddr_in sin = {0};
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = inet_addr("127.0.0.1");
 	sin.sin_port = htons(port);
@@ -142,7 +143,7 @@ TEST_F(echo_test, socks5_no_auth_conn_domainname) {
 	{
 		// version identifier/method selection message
 		uint8_t buf[] = {0x05, 0x01, 0x00};
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 	}
 
 	{
@@ -156,13 +157,13 @@ TEST_F(echo_test, socks5_no_auth_conn_domainname) {
 	{
 		// request
 		uint8_t buf[] = {0x05, 0x01, 0x00, 0x03};
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 		char ip[] = "127.0.0.1";
 		uint8_t len = sizeof(ip) - 1;
-		send(fd, &len, sizeof(len), 0);
-		send(fd, ip, len, 0);
+		ASSERT_EQ(sizeof(len), send(fd, &len, sizeof(len), 0));
+		ASSERT_EQ(len, send(fd, ip, len, 0));
 		uint16_t remote_port = htons(m_port);
-		send(fd, &remote_port, sizeof(remote_port), 0);
+		ASSERT_EQ(sizeof(remote_port), send(fd, &remote_port, sizeof(remote_port), 0));
 	}
 
 	{
@@ -186,7 +187,7 @@ TEST_F(echo_test, socks5_no_auth_conn_domainname) {
 	{
 		// test data
 		char buf[] = "Hello, world!";
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 		ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
 		EXPECT_STREQ("Hello, world!", buf);
 	}
@@ -217,7 +218,7 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_ipv4_null) {
 		ASSERT_NE(-1, fd);
 		scope_guard guard_fd([fd] { close(fd); });
 
-		sockaddr_in sin;
+		sockaddr_in sin = {0};
 		sin.sin_family = AF_INET;
 		sin.sin_addr.s_addr = inet_addr("127.0.0.1");
 		sin.sin_port = htons(port);
@@ -226,7 +227,7 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_ipv4_null) {
 		{
 			// version identifier/method selection message
 			uint8_t buf[] = {0x05, 0x01, 0x00};
-			send(fd, buf, sizeof(buf), 0);
+			ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 		}
 
 		{
@@ -240,10 +241,10 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_ipv4_null) {
 		{
 			// request
 			uint8_t buf[] = {0x05, 0x01, 0x00, 0x01};
-			send(fd, buf, sizeof(buf), 0);
-			send(fd, &sin.sin_addr, sizeof(sin.sin_addr), 0);
+			ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
+			ASSERT_EQ(sizeof(sin.sin_addr), send(fd, &sin.sin_addr, sizeof(sin.sin_addr), 0));
 			uint16_t remote_port = htons(0);
-			send(fd, &remote_port, sizeof(remote_port), 0);
+			ASSERT_EQ(sizeof(remote_port), send(fd, &remote_port, sizeof(remote_port), 0));
 		}
 
 		{
@@ -289,7 +290,7 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_domainname_null) {
 		ASSERT_NE(-1, fd);
 		scope_guard guard_fd([fd] { close(fd); });
 
-		sockaddr_in sin;
+		sockaddr_in sin = {0};
 		sin.sin_family = AF_INET;
 		sin.sin_addr.s_addr = inet_addr("127.0.0.1");
 		sin.sin_port = htons(port);
@@ -298,7 +299,7 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_domainname_null) {
 		{
 			// version identifier/method selection message
 			uint8_t buf[] = {0x05, 0x01, 0x00};
-			send(fd, buf, sizeof(buf), 0);
+			ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 		}
 
 		{
@@ -312,13 +313,13 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_domainname_null) {
 		{
 			// request
 			uint8_t buf[] = {0x05, 0x01, 0x00, 0x03};
-			send(fd, buf, sizeof(buf), 0);
+			ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 			char ip[] = "127.0.0.1";
 			uint8_t len = sizeof(ip) - 1;
-			send(fd, &len, sizeof(len), 0);
-			send(fd, ip, len, 0);
+			ASSERT_EQ(sizeof(len), send(fd, &len, sizeof(len), 0));
+			ASSERT_EQ(len, send(fd, ip, len, 0));
 			uint16_t remote_port = htons(0);
-			send(fd, &remote_port, sizeof(remote_port), 0);
+			ASSERT_EQ(sizeof(remote_port), send(fd, &remote_port, sizeof(remote_port), 0));
 		}
 
 		{
@@ -388,7 +389,7 @@ TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
 	ASSERT_NE(-1, fd);
 	scope_guard guard_fd([fd] { close(fd); });
 
-	sockaddr_in sin;
+	sockaddr_in sin = {0};
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = inet_addr("127.0.0.1");
 	sin.sin_port = htons(port);
@@ -397,7 +398,7 @@ TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
 	{
 		// version identifier/method selection message
 		uint8_t buf[] = {0x05, 0x01, 0x00};
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 	}
 
 	{
@@ -411,10 +412,10 @@ TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
 	{
 		// request
 		uint8_t buf[] = {0x05, 0x01, 0x00, 0x01};
-		send(fd, buf, sizeof(buf), 0);
-		send(fd, &sin.sin_addr, sizeof(sin.sin_addr), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
+		ASSERT_EQ(sizeof(sin.sin_addr), send(fd, &sin.sin_addr, sizeof(sin.sin_addr), 0));
 		uint16_t remote_port = htons(m_port);
-		send(fd, &remote_port, sizeof(remote_port), 0);
+		ASSERT_EQ(sizeof(remote_port), send(fd, &remote_port, sizeof(remote_port), 0));
 	}
 
 	{
@@ -436,7 +437,7 @@ TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
 	{
 		// test data
 		char buf[] = "Hello, world!";
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 		memset(buf, 0, sizeof(buf));
 		ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
 		EXPECT_STREQ("Hello, world!", buf);
@@ -490,7 +491,7 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
 	ASSERT_NE(-1, fd);
 	scope_guard guard_fd([fd] { close(fd); });
 
-	sockaddr_in sin;
+	sockaddr_in sin = {0};
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = inet_addr("127.0.0.1");
 	sin.sin_port = htons(port);
@@ -499,7 +500,7 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
 	{
 		// version identifier/method selection message
 		uint8_t buf[] = {0x05, 0x01, 0x00};
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 	}
 
 	{
@@ -513,10 +514,10 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
 	{
 		// request
 		uint8_t buf[] = {0x05, 0x01, 0x00, 0x01};
-		send(fd, buf, sizeof(buf), 0);
-		send(fd, &sin.sin_addr, sizeof(sin.sin_addr), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
+		ASSERT_EQ(sizeof(sin.sin_addr), send(fd, &sin.sin_addr, sizeof(sin.sin_addr), 0));
 		uint16_t remote_port = htons(0);
-		send(fd, &remote_port, sizeof(remote_port), 0);
+		ASSERT_EQ(sizeof(remote_port), send(fd, &remote_port, sizeof(remote_port), 0));
 	}
 
 	{
@@ -587,7 +588,7 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
 	ASSERT_NE(-1, fd);
 	scope_guard guard_fd([fd] { close(fd); });
 
-	sockaddr_in sin;
+	sockaddr_in sin = {0};
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = inet_addr("127.0.0.1");
 	sin.sin_port = htons(port);
@@ -596,7 +597,7 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
 	{
 		// version identifier/method selection message
 		uint8_t buf[] = {0x05, 0x01, 0x00};
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 	}
 
 	{
@@ -610,13 +611,13 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
 	{
 		// request
 		uint8_t buf[] = {0x05, 0x01, 0x00, 0x03};
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 		char ip[] = "127.0.0.1";
 		uint8_t len = sizeof(ip) - 1;
-		send(fd, &len, sizeof(len), 0);
-		send(fd, ip, len, 0);
+		ASSERT_EQ(sizeof(len), send(fd, &len, sizeof(len), 0));
+		ASSERT_EQ(len, send(fd, ip, len, 0));
 		uint16_t remote_port = htons(0);
-		send(fd, &remote_port, sizeof(remote_port), 0);
+		ASSERT_EQ(sizeof(remote_port), send(fd, &remote_port, sizeof(remote_port), 0));
 	}
 
 	{
@@ -667,7 +668,7 @@ TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
 	ASSERT_NE(-1, fd);
 	scope_guard guard_fd([fd] { close(fd); });
 
-	sockaddr_in sin;
+	sockaddr_in sin = {0};
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = inet_addr("127.0.0.1");
 	sin.sin_port = htons(port);
@@ -676,7 +677,7 @@ TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
 	{
 		// version identifier/method selection message
 		uint8_t buf[] = {0x05, 0x01, 0x02};
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 	}
 
 	{
@@ -694,11 +695,11 @@ TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
 		uint8_t uname_len = strlen(username);
 		char password[] = "Hello, world!";
 		uint8_t passwd_len = strlen(password);
-		send(fd, &ver, sizeof(ver), 0);
-		send(fd, &uname_len, sizeof(uname_len), 0);
-		send(fd, username, uname_len, 0);
-		send(fd, &passwd_len, sizeof(passwd_len), 0);
-		send(fd, password, passwd_len, 0);
+		ASSERT_EQ(sizeof(ver), send(fd, &ver, sizeof(ver), 0));
+		ASSERT_EQ(sizeof(uname_len), send(fd, &uname_len, sizeof(uname_len), 0));
+		ASSERT_EQ(uname_len, send(fd, username, uname_len, 0));
+		ASSERT_EQ(sizeof(passwd_len), send(fd, &passwd_len, sizeof(passwd_len), 0));
+		ASSERT_EQ(passwd_len, send(fd, password, passwd_len, 0));
 	}
 
 	{
@@ -712,10 +713,10 @@ TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
 	{
 		// request
 		uint8_t buf[] = {0x05, 0x01, 0x00, 0x01};
-		send(fd, buf, sizeof(buf), 0);
-		send(fd, &sin.sin_addr, sizeof(sin.sin_addr), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
+		ASSERT_EQ(sizeof(sin.sin_addr), send(fd, &sin.sin_addr, sizeof(sin.sin_addr), 0));
 		uint16_t remote_port = htons(m_port);
-		send(fd, &remote_port, sizeof(remote_port), 0);
+		ASSERT_EQ(sizeof(remote_port), send(fd, &remote_port, sizeof(remote_port), 0));
 	}
 
 	{
@@ -737,7 +738,7 @@ TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
 	{
 		// test data
 		char buf[] = "Hello, world!";
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 		memset(buf, 0, sizeof(buf));
 		ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
 		EXPECT_STREQ("Hello, world!", buf);
@@ -769,7 +770,7 @@ TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
 	ASSERT_NE(-1, fd);
 	scope_guard guard_fd([fd] { close(fd); });
 
-	sockaddr_in sin;
+	sockaddr_in sin = {0};
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = inet_addr("127.0.0.1");
 	sin.sin_port = htons(port);
@@ -778,7 +779,7 @@ TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
 	{
 		// version identifier/method selection message
 		uint8_t buf[] = {0x05, 0x01, 0x02};
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 	}
 
 	{
@@ -795,10 +796,10 @@ TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
 		char username[] = "test";
 		uint8_t uname_len = strlen(username);
 		uint8_t passwd_len = 0;
-		send(fd, &ver, sizeof(ver), 0);
-		send(fd, &uname_len, sizeof(uname_len), 0);
-		send(fd, username, uname_len, 0);
-		send(fd, &passwd_len, sizeof(passwd_len), 0);
+		ASSERT_EQ(sizeof(ver), send(fd, &ver, sizeof(ver), 0));
+		ASSERT_EQ(sizeof(uname_len), send(fd, &uname_len, sizeof(uname_len), 0));
+		ASSERT_EQ(uname_len, send(fd, username, uname_len, 0));
+		ASSERT_EQ(sizeof(passwd_len), send(fd, &passwd_len, sizeof(passwd_len), 0));
 	}
 
 	{
@@ -812,10 +813,10 @@ TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
 	{
 		// request
 		uint8_t buf[] = {0x05, 0x01, 0x00, 0x01};
-		send(fd, buf, sizeof(buf), 0);
-		send(fd, &sin.sin_addr, sizeof(sin.sin_addr), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
+		ASSERT_EQ(sizeof(sin.sin_addr), send(fd, &sin.sin_addr, sizeof(sin.sin_addr), 0));
 		uint16_t remote_port = htons(m_port);
-		send(fd, &remote_port, sizeof(remote_port), 0);
+		ASSERT_EQ(sizeof(remote_port), send(fd, &remote_port, sizeof(remote_port), 0));
 	}
 
 	{
@@ -837,7 +838,7 @@ TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
 	{
 		// test data
 		char buf[] = "Hello, world!";
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 		memset(buf, 0, sizeof(buf));
 		ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
 		EXPECT_STREQ("Hello, world!", buf);
@@ -869,7 +870,7 @@ TEST_F(echo_test, socks5_username_auth_conn_domainname) {
 	ASSERT_NE(-1, fd);
 	scope_guard guard_fd([fd] { close(fd); });
 
-	sockaddr_in sin;
+	sockaddr_in sin = {0};
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = inet_addr("127.0.0.1");
 	sin.sin_port = htons(port);
@@ -878,7 +879,7 @@ TEST_F(echo_test, socks5_username_auth_conn_domainname) {
 	{
 		// version identifier/method selection message
 		uint8_t buf[] = {0x05, 0x01, 0x02};
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 	}
 
 	{
@@ -896,11 +897,11 @@ TEST_F(echo_test, socks5_username_auth_conn_domainname) {
 		uint8_t uname_len = strlen(username);
 		char password[] = "Hello, world!";
 		uint8_t passwd_len = strlen(password);
-		send(fd, &ver, sizeof(ver), 0);
-		send(fd, &uname_len, sizeof(uname_len), 0);
-		send(fd, username, uname_len, 0);
-		send(fd, &passwd_len, sizeof(passwd_len), 0);
-		send(fd, password, passwd_len, 0);
+		ASSERT_EQ(sizeof(ver), send(fd, &ver, sizeof(ver), 0));
+		ASSERT_EQ(sizeof(uname_len), send(fd, &uname_len, sizeof(uname_len), 0));
+		ASSERT_EQ(uname_len, send(fd, username, uname_len, 0));
+		ASSERT_EQ(sizeof(passwd_len), send(fd, &passwd_len, sizeof(passwd_len), 0));
+		ASSERT_EQ(passwd_len, send(fd, password, passwd_len, 0));
 	}
 
 	{
@@ -914,13 +915,13 @@ TEST_F(echo_test, socks5_username_auth_conn_domainname) {
 	{
 		// request
 		uint8_t buf[] = {0x05, 0x01, 0x00, 0x03};
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 		char ip[] = "127.0.0.1";
 		uint8_t len = sizeof(ip) - 1;
-		send(fd, &len, sizeof(len), 0);
-		send(fd, ip, len, 0);
+		ASSERT_EQ(sizeof(len), send(fd, &len, sizeof(len), 0));
+		ASSERT_EQ(len, send(fd, ip, len, 0));
 		uint16_t remote_port = htons(m_port);
-		send(fd, &remote_port, sizeof(remote_port), 0);
+		ASSERT_EQ(sizeof(remote_port), send(fd, &remote_port, sizeof(remote_port), 0));
 	}
 
 	{
@@ -944,7 +945,7 @@ TEST_F(echo_test, socks5_username_auth_conn_domainname) {
 	{
 		// test data
 		char buf[] = "Hello, world!";
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 		ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
 		EXPECT_STREQ("Hello, world!", buf);
 	}
@@ -975,7 +976,7 @@ TEST_F(ranger_proxy_test, socks5_username_auth_failed) {
 	ASSERT_NE(-1, fd);
 	scope_guard guard_fd([fd] { close(fd); });
 
-	sockaddr_in sin;
+	sockaddr_in sin = {0};
 	sin.sin_family = AF_INET;
 	sin.sin_addr.s_addr = inet_addr("127.0.0.1");
 	sin.sin_port = htons(port);
@@ -984,7 +985,7 @@ TEST_F(ranger_proxy_test, socks5_username_auth_failed) {
 	{
 		// version identifier/method selection message
 		uint8_t buf[] = {0x05, 0x01, 0x02};
-		send(fd, buf, sizeof(buf), 0);
+		ASSERT_EQ(sizeof(buf), send(fd, buf, sizeof(buf), 0));
 	}
 
 	{
@@ -1002,11 +1003,11 @@ TEST_F(ranger_proxy_test, socks5_username_auth_failed) {
 		uint8_t uname_len = strlen(username);
 		char password[] = "Hello, world!";
 		uint8_t passwd_len = strlen(password);
-		send(fd, &ver, sizeof(ver), 0);
-		send(fd, &uname_len, sizeof(uname_len), 0);
-		send(fd, username, uname_len, 0);
-		send(fd, &passwd_len, sizeof(passwd_len), 0);
-		send(fd, password, passwd_len, 0);
+		ASSERT_EQ(sizeof(ver), send(fd, &ver, sizeof(ver), 0));
+		ASSERT_EQ(sizeof(uname_len), send(fd, &uname_len, sizeof(uname_len), 0));
+		ASSERT_EQ(uname_len, send(fd, username, uname_len, 0));
+		ASSERT_EQ(sizeof(passwd_len), send(fd, &passwd_len, sizeof(passwd_len), 0));
+		ASSERT_EQ(passwd_len, send(fd, password, passwd_len, 0));
 	}
 
 	{

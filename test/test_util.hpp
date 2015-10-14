@@ -41,6 +41,7 @@ echo_service_impl(echo_service::broker_pointer self) {
 		[=] (const caf::io::new_data_msg& msg) {
 			self->write(msg.handle, msg.buf.size(), msg.buf.data());
 			self->flush(msg.handle);
+			self->close(msg.handle);
 		},
 		[] (const caf::io::connection_closed_msg&) {},
 		[] (const caf::io::acceptor_closed_msg&) {},

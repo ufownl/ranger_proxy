@@ -29,7 +29,9 @@ gate_state::gate_state(gate_session::broker_pointer self)
 }
 
 void gate_state::init(	connection_handle hdl, const std::string& host, uint16_t port,
-						const std::vector<uint8_t>& key, bool zlib) {
+						const std::vector<uint8_t>& key, bool zlib, int timeout) {
+	m_timer = m_self->spawn<linked>(deadline_timer_impl, timeout);
+
 	m_local_hdl = hdl;
 	m_self->configure_read(m_local_hdl, receive_policy::at_most(BUFFER_SIZE));
 
@@ -41,6 +43,7 @@ void gate_state::init(	connection_handle hdl, const std::string& host, uint16_t 
 
 void gate_state::handle_new_data(const new_data_msg& msg) {
 	if (msg.handle == m_local_hdl) {
+		m_self->send(m_timer, reset_atom::value);
 		if (m_remote_hdl.invalid()) {
 			m_buf.insert(m_buf.end(), msg.buf.begin(), msg.buf.end());
 		} else {
@@ -149,7 +152,7 @@ gate_session::behavior_type
 gate_session_impl(	gate_session::stateful_broker_pointer<gate_state> self,
 					connection_handle hdl, const std::string& host, uint16_t port,
 					const std::vector<uint8_t>& key, bool zlib, int timeout) {
-	self->state.init(hdl, host, port, key, zlib);
+	self->state.init(hdl, host, port, key, zlib, timeout);
 	return {
 		[self] (const new_data_msg& msg) {
 			self->state.handle_new_data(msg);
@@ -168,9 +171,6 @@ gate_session_impl(	gate_session::stateful_broker_pointer<gate_state> self,
 		},
 		[self] (decrypt_atom, const std::vector<char>& buf) {
 			self->state.handle_decrypted_data(buf);
-		},
-		after(std::chrono::seconds(timeout)) >> [self] {
-			self->quit(exit_reason::user_shutdown);
 		}
 	};
 }
