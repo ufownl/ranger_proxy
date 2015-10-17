@@ -30,6 +30,16 @@ socks5_state::socks5_state(socks5_session::broker_pointer self)
 	// nop
 }
 
+socks5_state::~socks5_state() {
+	if (m_verbose) {
+		try {
+			log(m_self) << "INFO: SOCKS5 session destroyed" << std::endl;
+		} catch (...) {
+			// ignore all exceptions
+		}
+	}
+}
+
 void socks5_state::init(connection_handle hdl,
 						const user_table& tbl,
 						const std::vector<uint8_t>& key,
@@ -56,6 +66,10 @@ void socks5_state::init(connection_handle hdl,
 	m_unpacker.expect(2, [this] (std::vector<char> buf) {
 		return handle_select_method(std::move(buf));
 	});
+
+	if (m_verbose) {
+		log(m_self) << "INFO: SOCKS5 session initialized" << std::endl;
+	}
 }
 
 void socks5_state::handle_new_data(const new_data_msg& msg) {

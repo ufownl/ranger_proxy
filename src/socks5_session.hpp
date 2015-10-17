@@ -39,6 +39,7 @@ using socks5_session =
 class socks5_state {
 public:
 	socks5_state(socks5_session::broker_pointer self);
+	~socks5_state();
 
 	socks5_state(const socks5_state&) = delete;
 	socks5_state& operator = (const socks5_state&) = delete;
