@@ -30,20 +30,22 @@ const user_table& socks5_service_state::get_user_table() const {
 	return m_user_tbl;
 }
 
-void socks5_service_state::set_key(const std::vector<uint8_t>& key) {
-	m_key = key;
+void socks5_service_state::add_doorman_info(accept_handle hdl,
+											const std::vector<uint8_t>& key,
+											bool zlib) {
+	auto& info = m_info_map[hdl];
+	info.first = key;
+	info.second = zlib;
 }
 
-const std::vector<uint8_t>& socks5_service_state::get_key() const {
-	return m_key;
-}
-
-void socks5_service_state::set_zlib(bool zlib) {
-	m_zlib = zlib;
-}
-
-bool socks5_service_state::get_zlib() const {
-	return m_zlib;
+socks5_service_state::doorman_info
+socks5_service_state::get_doorman_info(accept_handle hdl) const {
+	auto it = m_info_map.find(hdl);
+	if (it == m_info_map.end()) {
+		return {{}, false};
+	} else {
+		return it->second;
+	}
 }
 
 socks5_service::behavior_type
@@ -59,8 +61,9 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
 	std::minstd_rand rd(dev());
 	return {
 		[rd, self, timeout, verbose] (const new_connection_msg& msg) mutable {
+			auto info = self->state.get_doorman_info(msg.source);
 			uint32_t seed = 0;
-			if (!self->state.get_key().empty()) {
+			if (!info.first.empty()) {
 				seed = rd();
 				if (verbose) {
 					ranger::proxy::log(self) << "INFO: Initialization vector seed[" << seed << "]" << std::endl;
@@ -73,33 +76,32 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
 			auto forked =
 				self->fork(	socks5_session_impl, msg.handle,
 							self->state.get_user_table(),
-							self->state.get_key(), seed,
-							self->state.get_zlib(),
+							info.first, seed, info.second,
 							timeout, verbose);
 			self->link_to(forked);
 		},
 		[] (const new_data_msg&) {},
 		[] (const connection_closed_msg&) {},
 		[] (const acceptor_closed_msg&) {},
-		[self] (publish_atom, uint16_t port)
+		[self] (publish_atom, uint16_t port,
+				const std::vector<uint8_t>& key, bool zlib)
 			-> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
 			try {
-				return {
-					ok_atom::value,
-					self->add_tcp_doorman(port, nullptr, true).second
-				};
-			} catch (const network_error& e) {
+				auto doorman = self->add_tcp_doorman(port, nullptr, true);
+				self->state.add_doorman_info(doorman.first, key, zlib);
+				return {ok_atom::value, doorman.second};
+			} catch (const std::exception& e) {
 				return {error_atom::value, e.what()};
 			}
 		},
-		[self] (publish_atom, const std::string& host, uint16_t port)
+		[self] (publish_atom, const std::string& host, uint16_t port,
+				const std::vector<uint8_t>& key, bool zlib)
 			-> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
 			try {
-				return {
-					ok_atom::value,
-					self->add_tcp_doorman(port, host.c_str(), true).second
-				};
-			} catch (const network_error& e) {
+				auto doorman = self->add_tcp_doorman(port, host.c_str(), true);
+				self->state.add_doorman_info(doorman.first, key, zlib);
+				return {ok_atom::value, doorman.second};
+			} catch (const std::exception& e) {
 				return {error_atom::value, e.what()};
 			}
 		},
@@ -111,12 +113,6 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
 			}
 
 			return self->delegate(tbl, add_atom::value, username, password);
-		},
-		[self] (encrypt_atom, const std::vector<uint8_t>& key) {
-			self->state.set_key(key);
-		},
-		[self] (zlib_atom, bool zlib) {
-			self->state.set_zlib(zlib);
 		},
 		[self] (const exit_msg& msg) {
 			if (msg.reason != exit_reason::normal

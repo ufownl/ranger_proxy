@@ -40,7 +40,8 @@ TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
 	uint16_t port = 0;
 	{
 		caf::scoped_actor self;
-		self->sync_send(socks5, caf::publish_atom::value, port).await(
+		self->sync_send(socks5, caf::publish_atom::value, port,
+						std::vector<uint8_t>(), false).await(
 			[&port] (caf::ok_atom, uint16_t socks5_port) {
 				port = socks5_port;
 			},
@@ -119,7 +120,8 @@ TEST_F(echo_test, socks5_no_auth_conn_domainname) {
 	uint16_t port = 0;
 	{
 		caf::scoped_actor self;
-		self->sync_send(socks5, caf::publish_atom::value, port).await(
+		self->sync_send(socks5, caf::publish_atom::value, port,
+						std::vector<uint8_t>(), false).await(
 			[&port] (caf::ok_atom, uint16_t socks5_port) {
 				port = socks5_port;
 			},
@@ -202,7 +204,8 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_ipv4_null) {
 	uint16_t port = 0;
 	{
 		caf::scoped_actor self;
-		self->sync_send(socks5, caf::publish_atom::value, port).await(
+		self->sync_send(socks5, caf::publish_atom::value, port,
+						std::vector<uint8_t>(), false).await(
 			[&port] (caf::ok_atom, uint16_t socks5_port) {
 				port = socks5_port;
 			},
@@ -274,7 +277,8 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_domainname_null) {
 	uint16_t port = 0;
 	{
 		caf::scoped_actor self;
-		self->sync_send(socks5, caf::publish_atom::value, port).await(
+		self->sync_send(socks5, caf::publish_atom::value, port,
+						std::vector<uint8_t>(), false).await(
 			[&port] (caf::ok_atom, uint16_t socks5_port) {
 				port = socks5_port;
 			},
@@ -359,8 +363,8 @@ TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
 	uint16_t port = 0;
 	{
 		caf::scoped_actor self;
-		self->send(socks5, ranger::proxy::encrypt_atom::value, key);
-		self->sync_send(socks5, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
+		self->sync_send(socks5, caf::publish_atom::value, static_cast<uint16_t>(0),
+						key, false).await(
 			[&port] (caf::ok_atom, uint16_t socks5_port) {
 				port = socks5_port;
 			},
@@ -461,8 +465,8 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
 	uint16_t port = 0;
 	{
 		caf::scoped_actor self;
-		self->send(socks5, ranger::proxy::encrypt_atom::value, key);
-		self->sync_send(socks5, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
+		self->sync_send(socks5, caf::publish_atom::value, static_cast<uint16_t>(0),
+						key, false).await(
 			[&port] (caf::ok_atom, uint16_t socks5_port) {
 				port = socks5_port;
 			},
@@ -558,8 +562,8 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
 	uint16_t port = 0;
 	{
 		caf::scoped_actor self;
-		self->send(socks5, ranger::proxy::encrypt_atom::value, key);
-		self->sync_send(socks5, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
+		self->sync_send(socks5, caf::publish_atom::value, static_cast<uint16_t>(0),
+						key, false).await(
 			[&port] (caf::ok_atom, uint16_t socks5_port) {
 				port = socks5_port;
 			},
@@ -653,7 +657,8 @@ TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
 	{
 		caf::scoped_actor self;
 		self->send(socks5, caf::add_atom::value, "test", "Hello, world!");
-		self->sync_send(socks5, caf::publish_atom::value, port).await(
+		self->sync_send(socks5, caf::publish_atom::value, port,
+						std::vector<uint8_t>(), false).await(
 			[&port] (caf::ok_atom, uint16_t socks5_port) {
 				port = socks5_port;
 			},
@@ -755,7 +760,8 @@ TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
 	{
 		caf::scoped_actor self;
 		self->send(socks5, caf::add_atom::value, "test", std::string());
-		self->sync_send(socks5, caf::publish_atom::value, port).await(
+		self->sync_send(socks5, caf::publish_atom::value, port,
+						std::vector<uint8_t>(), false).await(
 			[&port] (caf::ok_atom, uint16_t socks5_port) {
 				port = socks5_port;
 			},
@@ -855,7 +861,8 @@ TEST_F(echo_test, socks5_username_auth_conn_domainname) {
 	{
 		caf::scoped_actor self;
 		self->send(socks5, caf::add_atom::value, "test", "Hello, world!");
-		self->sync_send(socks5, caf::publish_atom::value, port).await(
+		self->sync_send(socks5, caf::publish_atom::value, port,
+						std::vector<uint8_t>(), false).await(
 			[&port] (caf::ok_atom, uint16_t socks5_port) {
 				port = socks5_port;
 			},
@@ -961,7 +968,8 @@ TEST_F(ranger_proxy_test, socks5_username_auth_failed) {
 	{
 		caf::scoped_actor self;
 		self->send(socks5, caf::add_atom::value, "auth_failed", "auth_failed");
-		self->sync_send(socks5, caf::publish_atom::value, port).await(
+		self->sync_send(socks5, caf::publish_atom::value, port,
+						std::vector<uint8_t>(), false).await(
 			[&port] (caf::ok_atom, uint16_t socks5_port) {
 				port = socks5_port;
 			},

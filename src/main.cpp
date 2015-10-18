@@ -41,20 +41,8 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 		}
 	}
 
-	std::string host;
-	auto node = root->first_node("host");
-	if (node) {
-		host = node->value();
-	}
-
-	uint16_t port = 1080;
-	node = root->first_node("port");
-	if (node) {
-		port = atoi(node->value());
-	}
-
 	int timeout = 300;
-	node = root->first_node("timeout");
+	auto node = root->first_node("timeout");
 	if (node) {
 		timeout = atoi(node->value());
 	}
@@ -99,21 +87,21 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 	if (node && atoi(node->value())) {
 		auto serv = spawn_io(gate_service_impl, timeout, log);
 		scoped_actor self;
-		for (auto j = root->first_node("remote_host"); j; j = j->next_sibling("remote_host")) {
-			std::string remote_addr;
-			node = j->first_node("address");
+		for (auto i = root->first_node("remote_host"); i; i = i->next_sibling("remote_host")) {
+			std::string addr;
+			node = i->first_node("address");
 			if (node) {
-				remote_addr = node->value();
+				addr = node->value();
 			}
 
-			uint16_t remote_port = 0;
-			node = j->first_node("port");
+			uint16_t port = 0;
+			node = i->first_node("port");
 			if (node) {
-				remote_port = atoi(node->value());
+				port = atoi(node->value());
 			}
 
 			std::vector<uint8_t> key;
-			node = j->first_node("key");
+			node = i->first_node("key");
 			if (node) {
 				key.insert(	key.end(),
 							node->value(),
@@ -121,12 +109,12 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 			}
 
 			bool zlib = false;
-			node = j->first_node("zlib");
+			node = i->first_node("zlib");
 			if (node && atoi(node->value())) {
 				zlib = true;
 			}
 
-			self->send(serv, add_atom::value, remote_addr, remote_port, key, zlib);
+			self->send(serv, add_atom::value, addr, port, key, zlib);
 		}
 
 		auto ok_hdl = [] (ok_atom, uint16_t) {
@@ -136,24 +124,39 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 			std::cerr << "ERROR: " << what << std::endl;
 			ret = 1;
 		};
-		if (host.empty()) {
-			self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
-		} else {
-			self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
-		}
+		for (auto i = root->first_node("local_host"); i; i = i->next_sibling("local_host")) {
+			std::string addr;
+			node = i->first_node("address");
+			if (node) {
+				addr = node->value();
+			}
 
-		if (ret) {
-			anon_send_exit(serv, exit_reason::kill);
+			uint16_t port = 1080;
+			node = i->first_node("port");
+			if (node) {
+				port = atoi(node->value());
+			}
+
+			if (addr.empty()) {
+				self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
+			} else {
+				self->sync_send(serv, publish_atom::value, addr, port).await(ok_hdl, err_hdl);
+			}
+
+			if (ret) {
+				anon_send_exit(serv, exit_reason::kill);
+				break;
+			}
 		}
 	} else {
 		auto serv = spawn_io(socks5_service_impl, timeout, verbose, log);
 		scoped_actor self;
-		for (auto j = root->first_node("user"); j; j = j->next_sibling("user")) {
-			node = j->first_node("username");
+		for (auto i = root->first_node("user"); i; i = i->next_sibling("user")) {
+			node = i->first_node("username");
 			if (node) {
 				std::string username = node->value();
 				std::string password;
-				node = j->first_node("password");
+				node = i->first_node("password");
 				if (node) {
 					password = node->value();
 				}
@@ -170,21 +173,6 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 			}
 		}
 
-		std::vector<uint8_t> key;
-		node = root->first_node("key");
-		if (node) {
-			key.insert(	key.end(),
-						node->value(),
-						node->value() + strlen(node->value()));
-		}
-
-		self->send(serv, encrypt_atom::value, key);
-
-		node = root->first_node("zlib");
-		if (node && atoi(node->value())) {
-			self->send(serv, zlib_atom::value, true);
-		}
-
 		auto ok_hdl = [] (ok_atom, uint16_t) {
 			std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
 		};
@@ -192,14 +180,45 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
 			std::cerr << "ERROR: " << what << std::endl;
 			ret = 1;
 		};
-		if (host.empty()) {
-			self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
-		} else {
-			self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
-		}
+		for (auto i = root->first_node("local_host"); i; i = i->next_sibling("local_host")) {
+			std::string addr;
+			node = i->first_node("address");
+			if (node) {
+				addr = node->value();
+			}
 
-		if (ret) {
-			anon_send_exit(serv, exit_reason::kill);
+			uint16_t port = 1080;
+			node = i->first_node("port");
+			if (node) {
+				port = atoi(node->value());
+			}
+
+			std::vector<uint8_t> key;
+			node = i->first_node("key");
+			if (node) {
+				key.insert(	key.end(),
+							node->value(),
+							node->value() + strlen(node->value()));
+			}
+
+			bool zlib = false;
+			node = i->first_node("zlib");
+			if (node && atoi(node->value())) {
+				zlib = true;
+			}
+
+			if (addr.empty()) {
+				self->sync_send(serv, publish_atom::value, port,
+								key, zlib).await(ok_hdl, err_hdl);
+			} else {
+				self->sync_send(serv, publish_atom::value, addr, port,
+								key, zlib).await(ok_hdl, err_hdl);
+			}
+
+			if (ret) {
+				anon_send_exit(serv, exit_reason::kill);
+				break;
+			}
 		}
 	}
 	return ret;
@@ -344,8 +363,6 @@ int bootstrap(int argc, char* argv[]) {
 			);
 		}
 		std::vector<uint8_t> key(key_src.begin(), key_src.end());
-		self->send(serv, encrypt_atom::value, key);
-		self->send(serv, zlib_atom::value, res.opts.count("zlib") > 0);
 		auto ok_hdl = [] (ok_atom, uint16_t) {
 			std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
 		};
@@ -354,9 +371,11 @@ int bootstrap(int argc, char* argv[]) {
 			ret = 1;
 		};
 		if (host.empty()) {
-			self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
+			self->sync_send(serv, publish_atom::value, port,
+							key, res.opts.count("zlib") > 0).await(ok_hdl, err_hdl);
 		} else {
-			self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
+			self->sync_send(serv, publish_atom::value, host, port,
+							key, res.opts.count("zlib") > 0).await(ok_hdl, err_hdl);
 		}
 
 		if (ret) {
