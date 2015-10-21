@@ -61,7 +61,7 @@ public:
 
 private:
 	void write_to_local(std::vector<char> buf);
-	void write_raw(connection_handle hdl, std::vector<char> buf) const;
+	void write_raw(connection_handle hdl, std::vector<char> buf);
 
 	bool handle_select_method(std::vector<char> buf);
 	bool handle_username_auth(std::vector<char> buf);
@@ -72,7 +72,11 @@ private:
 	const socks5_session::broker_pointer m_self;
 	deadline_timer m_timer;
 	connection_handle m_local_hdl;
+	size_t m_local_recv_bytes {0};
+	size_t m_local_send_bytes {0};
 	connection_handle m_remote_hdl;
+	size_t m_remote_recv_bytes {0};
+	size_t m_remote_send_bytes {0};
 	user_table m_user_tbl;
 	encryptor m_encryptor;
 	size_t m_encrypting {0};
