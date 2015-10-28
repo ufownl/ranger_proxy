@@ -19,28 +19,27 @@
 
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include "user_table.hpp"
 #include "encryptor.hpp"
 
 namespace ranger { namespace proxy {
 
-using zlib_atom = atom_constant<atom("zlib")>;
-
 using socks5_service =
 	minimal_server::extend<
-		replies_to<publish_atom, uint16_t>
+		replies_to<publish_atom, uint16_t, std::vector<uint8_t>, bool>
 			::with_either<ok_atom, uint16_t>
 			::or_else<error_atom, std::string>,
-		replies_to<publish_atom, std::string, uint16_t>
+		replies_to<publish_atom, std::string, uint16_t, std::vector<uint8_t>, bool>
 			::with_either<ok_atom, uint16_t>
 			::or_else<error_atom, std::string>,
-		replies_to<add_atom, std::string, std::string>::with<bool, std::string>,
-		reacts_to<encrypt_atom, std::vector<uint8_t>>,
-		reacts_to<zlib_atom, bool>
+		replies_to<add_atom, std::string, std::string>::with<bool, std::string>
 	>;
 
 class socks5_service_state {
 public:
+	using doorman_info = std::pair<std::vector<uint8_t>, bool>;
+
 	socks5_service_state() = default;
 
 	socks5_service_state(const socks5_service_state&) = delete;
@@ -49,16 +48,14 @@ public:
 	void set_user_table(const user_table& tbl);
 	const user_table& get_user_table() const;
 
-	void set_key(const std::vector<uint8_t>& key);
-	const std::vector<uint8_t>& get_key() const;
-
-	void set_zlib(bool zlib);
-	bool get_zlib() const;
+	void add_doorman_info(	accept_handle hdl,
+							const std::vector<uint8_t>& key,
+							bool zlib);
+	doorman_info get_doorman_info(accept_handle hdl) const;
 
 private:
 	user_table m_user_tbl;
-	std::vector<uint8_t> m_key;
-	bool m_zlib {false};
+	std::unordered_map<accept_handle, doorman_info> m_info_map;
 };
 
 socks5_service::behavior_type

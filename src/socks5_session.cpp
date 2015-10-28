@@ -30,6 +30,21 @@ socks5_state::socks5_state(socks5_session::broker_pointer self)
 	// nop
 }
 
+socks5_state::~socks5_state() {
+	if (m_verbose) {
+		try {
+			log(m_self) << "INFO: SOCKS5 session destroyed"
+				<< " [local recv: " << m_local_recv_bytes << "]"
+				<< " [remote recv: " << m_remote_recv_bytes << "]"
+				<< " [local send: " << m_local_send_bytes << "]"
+				<< " [remote send: " << m_remote_send_bytes << "]"
+				<< std::endl;
+		} catch (...) {
+			// ignore all exceptions
+		}
+	}
+}
+
 void socks5_state::init(connection_handle hdl,
 						const user_table& tbl,
 						const std::vector<uint8_t>& key,
@@ -56,6 +71,10 @@ void socks5_state::init(connection_handle hdl,
 	m_unpacker.expect(2, [this] (std::vector<char> buf) {
 		return handle_select_method(std::move(buf));
 	});
+
+	if (m_verbose) {
+		log(m_self) << "INFO: SOCKS5 session initialized" << std::endl;
+	}
 }
 
 void socks5_state::handle_new_data(const new_data_msg& msg) {
@@ -67,6 +86,7 @@ void socks5_state::handle_new_data(const new_data_msg& msg) {
 			<< m_self->remote_port(m_remote_hdl) << "]" << std::endl;
 		m_self->quit(exit_reason::user_shutdown);
 	} else if (msg.handle == m_local_hdl) {
+		m_local_recv_bytes += msg.buf.size();
 		m_self->send(m_timer, reset_atom::value);
 		if (m_encryptor) {
 			m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
@@ -78,6 +98,7 @@ void socks5_state::handle_new_data(const new_data_msg& msg) {
 			}
 		}
 	} else {
+		m_remote_recv_bytes += msg.buf.size();
 		if (m_encryptor) {
 			m_self->send(m_encryptor, encrypt_atom::value, msg.buf);
 			++m_encrypting;
@@ -168,7 +189,13 @@ void socks5_state::write_to_local(std::vector<char> buf) {
 	}
 }
 
-void socks5_state::write_raw(connection_handle hdl, std::vector<char> buf) const {
+void socks5_state::write_raw(connection_handle hdl, std::vector<char> buf) {
+	if (hdl == m_local_hdl) {
+		m_local_send_bytes += buf.size();
+	} else {
+		m_remote_send_bytes += buf.size();
+	}
+
 	auto& wr_buf = m_self->wr_buf(hdl);
 	if (wr_buf.empty()) {
 		wr_buf = std::move(buf);
