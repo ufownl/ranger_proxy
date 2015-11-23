@@ -116,8 +116,8 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
     },
     [self] (const exit_msg& msg) {
       if (msg.reason != exit_reason::normal
-        && msg.reason != exit_reason::user_shutdown
-        && msg.reason != exit_reason::unhandled_exception) {
+          && msg.reason != exit_reason::user_shutdown
+          && msg.reason != exit_reason::unhandled_exception) {
         self->quit(msg.reason);
       }
     }
