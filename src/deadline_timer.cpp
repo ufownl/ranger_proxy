@@ -21,14 +21,14 @@ namespace ranger { namespace proxy {
 
 deadline_timer::behavior_type
 deadline_timer_impl(deadline_timer::pointer self, int timeout) {
-	return {
-		[] (reset_atom) {
-			// nop
-		},
-		after(std::chrono::seconds(timeout)) >> [self] {
-			self->quit(exit_reason::user_shutdown);
-		}
-	};
+  return {
+    [] (reset_atom) {
+      // nop
+    },
+    after(std::chrono::seconds(timeout)) >> [self] {
+      self->quit(exit_reason::user_shutdown);
+    }
+  };
 }
 
 } }

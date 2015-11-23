@@ -22,44 +22,44 @@ namespace ranger { namespace proxy {
 logger logger_ostream::m_logger;
 
 void logger_ostream::redirect(logger lgr) {
-	m_logger = lgr;
+  m_logger = lgr;
 }
 
 logger_ostream::logger_ostream(actor self)
-	: m_self(self)
-	, m_content("[actor") {
-	using std::to_string;
-	m_content += to_string(self.id()) + "] ";
+  : m_self(self)
+  , m_content("[actor") {
+  using std::to_string;
+  m_content += to_string(self.id()) + "] ";
 }
 
 logger_ostream& logger_ostream::write(const std::string& content) {
-	m_content += content;
-	return *this;
+  m_content += content;
+  return *this;
 }
 
 logger_ostream& logger_ostream::flush() {
-	if (m_logger) {
-		send_as(m_self, m_logger, std::move(m_content));
-	} else {
-		actor_ostream(m_self) << std::move(m_content) << std::flush;
-	}
-	return *this;
+  if (m_logger) {
+    send_as(m_self, m_logger, std::move(m_content));
+  } else {
+    actor_ostream(m_self) << std::move(m_content) << std::flush;
+  }
+  return *this;
 }
 
 logger_ostream& logger_ostream::operator << (const std::string& content) {
-	return write(content);
+  return write(content);
 }
 
 logger_ostream& logger_ostream::operator << (func_type func) {
-	return func(*this);
+  return func(*this);
 }
 
 logger_ostream log(const scoped_actor& self) {
-	return logger_ostream(self);
+  return logger_ostream(self);
 }
 
 logger_ostream log(abstract_actor* self) {
-	return logger_ostream(actor_cast<actor>(intrusive_ptr<abstract_actor>(self)));
+  return logger_ostream(actor_cast<actor>(intrusive_ptr<abstract_actor>(self)));
 }
 
 } }
@@ -67,11 +67,11 @@ logger_ostream log(abstract_actor* self) {
 namespace std {
 
 ranger::proxy::logger_ostream& endl(ranger::proxy::logger_ostream& ostrm) {
-	return ostrm.write("\n").flush();
+  return ostrm.write("\n").flush();
 }
 
 ranger::proxy::logger_ostream& flush(ranger::proxy::logger_ostream& ostrm) {
-	return ostrm.flush();
+  return ostrm.flush();
 }
 
 }

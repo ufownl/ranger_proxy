@@ -23,31 +23,31 @@ namespace ranger { namespace proxy {
 
 class logger_ostream {
 public:
-	using func_type = logger_ostream& (*)(logger_ostream&);
+  using func_type = logger_ostream& (*)(logger_ostream&);
 
-	static void redirect(logger lgr);
+  static void redirect(logger lgr);
 
-	explicit logger_ostream(actor self);
+  explicit logger_ostream(actor self);
 
-	logger_ostream& write(const std::string& content);
-	logger_ostream& flush();
+  logger_ostream& write(const std::string& content);
+  logger_ostream& flush();
 
-	logger_ostream& operator << (const std::string& content);
-	logger_ostream& operator << (func_type func);
+  logger_ostream& operator << (const std::string& content);
+  logger_ostream& operator << (func_type func);
 
-	template <class T>
-	typename std::enable_if<
-		!std::is_convertible<T, std::string>::value, logger_ostream&
-	>::type operator << (T&& content) {
-		using std::to_string;
-		using caf::to_string;
-		return write(to_string(std::forward<T>(content)));
-	}
+  template <class T>
+  typename std::enable_if<
+    !std::is_convertible<T, std::string>::value, logger_ostream&
+  >::type operator << (T&& content) {
+    using std::to_string;
+    using caf::to_string;
+    return write(to_string(std::forward<T>(content)));
+  }
 
 private:
-	static logger m_logger;
-	actor m_self;
-	std::string m_content;
+  static logger m_logger;
+  actor m_self;
+  std::string m_content;
 };
 
 logger_ostream log(const scoped_actor& self);
@@ -62,4 +62,4 @@ ranger::proxy::logger_ostream& flush(ranger::proxy::logger_ostream& ostrm);
 
 }
 
-#endif	// RANGER_PROXY_LOGGER_OSTREAM_HPP
+#endif  // RANGER_PROXY_LOGGER_OSTREAM_HPP

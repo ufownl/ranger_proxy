@@ -25,10 +25,10 @@ using encrypt_atom = atom_constant<atom("encrypt")>;
 using decrypt_atom = atom_constant<atom("decrypt")>;
 
 using encryptor = typed_actor<
-	replies_to<encrypt_atom, std::vector<char>>::with<encrypt_atom, std::vector<char>>,
-	replies_to<decrypt_atom, std::vector<char>>::with<decrypt_atom, std::vector<char>>
+  replies_to<encrypt_atom, std::vector<char>>::with<encrypt_atom, std::vector<char>>,
+  replies_to<decrypt_atom, std::vector<char>>::with<decrypt_atom, std::vector<char>>
 >;
 
 } }
 
-#endif	// RANGER_PROXY_ENCRYPTOR_HPP
+#endif  // RANGER_PROXY_ENCRYPTOR_HPP

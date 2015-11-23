@@ -23,121 +23,121 @@
 namespace ranger { namespace proxy {
 
 zlib_state::zlib_state(encryptor::pointer self)
-	: m_self(self) {
-	// nop
+  : m_self(self) {
+  // nop
 }
 
 zlib_state::~zlib_state() {
-	deflateEnd(&m_deflate_strm);
-	inflateEnd(&m_inflate_strm);
+  deflateEnd(&m_deflate_strm);
+  inflateEnd(&m_inflate_strm);
 }
 
 void zlib_state::init(const encryptor& enc) {
-	m_encryptor = enc;
-	
-	auto err_code = deflateInit(&m_deflate_strm, Z_BEST_COMPRESSION);
-	if (err_code == Z_MEM_ERROR) {
-		throw std::bad_alloc();
-	} else if (err_code != Z_OK) {
-		log(m_self) << "ERROR: " << m_deflate_strm.msg << std::endl;
-		throw std::runtime_error(m_deflate_strm.msg);
-	}
+  m_encryptor = enc;
+  
+  auto err_code = deflateInit(&m_deflate_strm, Z_BEST_COMPRESSION);
+  if (err_code == Z_MEM_ERROR) {
+    throw std::bad_alloc();
+  } else if (err_code != Z_OK) {
+    log(m_self) << "ERROR: " << m_deflate_strm.msg << std::endl;
+    throw std::runtime_error(m_deflate_strm.msg);
+  }
 
-	err_code = inflateInit(&m_inflate_strm);
-	if (err_code == Z_MEM_ERROR) {
-		throw std::bad_alloc();
-	} else if (err_code != Z_OK) {
-		log(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
-		throw std::runtime_error(m_inflate_strm.msg);
-	}
+  err_code = inflateInit(&m_inflate_strm);
+  if (err_code == Z_MEM_ERROR) {
+    throw std::bad_alloc();
+  } else if (err_code != Z_OK) {
+    log(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
+    throw std::runtime_error(m_inflate_strm.msg);
+  }
 }
 
 zlib_state::encrypt_promise_type zlib_state::encrypt(const std::vector<char>& in) {
-	encrypt_promise_type promise = m_self->make_response_promise();
-	if (m_encryptor) {
-		m_self->sync_send(m_encryptor, encrypt_atom::value, compress(in)).then(
-			[promise] (encrypt_atom, const std::vector<char>& buf) {
-				promise.deliver(encrypt_atom::value, buf);
-			}
-		);
-	} else {
-		promise.deliver(encrypt_atom::value, compress(in));
-	}
+  encrypt_promise_type promise = m_self->make_response_promise();
+  if (m_encryptor) {
+    m_self->sync_send(m_encryptor, encrypt_atom::value, compress(in)).then(
+      [promise] (encrypt_atom, const std::vector<char>& buf) {
+        promise.deliver(encrypt_atom::value, buf);
+      }
+    );
+  } else {
+    promise.deliver(encrypt_atom::value, compress(in));
+  }
 
-	return promise;
+  return promise;
 }
 
 zlib_state::decrypt_promise_type zlib_state::decrypt(const std::vector<char>& in) {
-	decrypt_promise_type promise = m_self->make_response_promise();
-	if (m_encryptor) {
-		m_self->sync_send(m_encryptor, decrypt_atom::value, in).then(
-			[this, promise] (decrypt_atom, const std::vector<char>& buf) {
-				promise.deliver(decrypt_atom::value, uncompress(buf));
-			}
-		);
-	} else {
-		promise.deliver(decrypt_atom::value, uncompress(in));
-	}
+  decrypt_promise_type promise = m_self->make_response_promise();
+  if (m_encryptor) {
+    m_self->sync_send(m_encryptor, decrypt_atom::value, in).then(
+      [this, promise] (decrypt_atom, const std::vector<char>& buf) {
+        promise.deliver(decrypt_atom::value, uncompress(buf));
+      }
+    );
+  } else {
+    promise.deliver(decrypt_atom::value, uncompress(in));
+  }
 
-	return promise;
+  return promise;
 }
 
 std::vector<char> zlib_state::compress(const std::vector<char>& in) {
-	std::vector<char> out;
-	std::vector<Bytef> in_buf(in.begin(), in.end());
-	m_deflate_strm.next_in = in_buf.data();
-	m_deflate_strm.avail_in = in_buf.size();
-	do {
-		Bytef buf[BUFFER_SIZE];
-		m_deflate_strm.next_out = buf;
-		m_deflate_strm.avail_out = sizeof(buf);
-		deflate(&m_deflate_strm, Z_SYNC_FLUSH);
-		size_t len = sizeof(buf) - m_deflate_strm.avail_out;
-		if (len > 0) {
-			out.insert(out.end(), buf, buf + len);
-		}
-	} while (m_deflate_strm.avail_out == 0);
+  std::vector<char> out;
+  std::vector<Bytef> in_buf(in.begin(), in.end());
+  m_deflate_strm.next_in = in_buf.data();
+  m_deflate_strm.avail_in = in_buf.size();
+  do {
+    Bytef buf[BUFFER_SIZE];
+    m_deflate_strm.next_out = buf;
+    m_deflate_strm.avail_out = sizeof(buf);
+    deflate(&m_deflate_strm, Z_SYNC_FLUSH);
+    size_t len = sizeof(buf) - m_deflate_strm.avail_out;
+    if (len > 0) {
+      out.insert(out.end(), buf, buf + len);
+    }
+  } while (m_deflate_strm.avail_out == 0);
 
-	return out;
+  return out;
 }
 
 std::vector<char> zlib_state::uncompress(const std::vector<char>& in) {
-	std::vector<char> out;
-	std::vector<Bytef> in_buf(in.begin(), in.end());
-	m_inflate_strm.next_in = in_buf.data();
-	m_inflate_strm.avail_in = in_buf.size();
-	do {
-		Bytef buf[BUFFER_SIZE];
-		m_inflate_strm.next_out = buf;
-		m_inflate_strm.avail_out = sizeof(buf);
-		auto err = inflate(&m_inflate_strm, Z_SYNC_FLUSH);
-		if (err == Z_MEM_ERROR) {
-			throw std::bad_alloc();
-		} else if (err == Z_NEED_DICT || err == Z_DATA_ERROR) {
-			log(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
-			throw std::runtime_error(m_inflate_strm.msg);
-		}
+  std::vector<char> out;
+  std::vector<Bytef> in_buf(in.begin(), in.end());
+  m_inflate_strm.next_in = in_buf.data();
+  m_inflate_strm.avail_in = in_buf.size();
+  do {
+    Bytef buf[BUFFER_SIZE];
+    m_inflate_strm.next_out = buf;
+    m_inflate_strm.avail_out = sizeof(buf);
+    auto err = inflate(&m_inflate_strm, Z_SYNC_FLUSH);
+    if (err == Z_MEM_ERROR) {
+      throw std::bad_alloc();
+    } else if (err == Z_NEED_DICT || err == Z_DATA_ERROR) {
+      log(m_self) << "ERROR: " << m_inflate_strm.msg << std::endl;
+      throw std::runtime_error(m_inflate_strm.msg);
+    }
 
-		size_t len = sizeof(buf) - m_inflate_strm.avail_out;
-		if (len > 0) {
-			out.insert(out.end(), buf, buf + len);
-		}
-	} while (m_inflate_strm.avail_out == 0);
+    size_t len = sizeof(buf) - m_inflate_strm.avail_out;
+    if (len > 0) {
+      out.insert(out.end(), buf, buf + len);
+    }
+  } while (m_inflate_strm.avail_out == 0);
 
-	return out;
+  return out;
 }
 
 encryptor::behavior_type
 zlib_encryptor_impl(encryptor::stateful_pointer<zlib_state> self, encryptor enc) {
-	self->state.init(enc);
-	return {
-		[self] (encrypt_atom, const std::vector<char>& data) {
-			return self->state.encrypt(data);
-		},
-		[self] (decrypt_atom, const std::vector<char>& data) {
-			return self->state.decrypt(data);
-		}
-	};
+  self->state.init(enc);
+  return {
+    [self] (encrypt_atom, const std::vector<char>& data) {
+      return self->state.encrypt(data);
+    },
+    [self] (decrypt_atom, const std::vector<char>& data) {
+      return self->state.decrypt(data);
+    }
+  };
 }
 
 } }

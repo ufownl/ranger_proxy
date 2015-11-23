@@ -26,42 +26,42 @@
 namespace ranger { namespace proxy {
 
 using socks5_service =
-	minimal_server::extend<
-		replies_to<publish_atom, uint16_t, std::vector<uint8_t>, bool>
-			::with_either<ok_atom, uint16_t>
-			::or_else<error_atom, std::string>,
-		replies_to<publish_atom, std::string, uint16_t, std::vector<uint8_t>, bool>
-			::with_either<ok_atom, uint16_t>
-			::or_else<error_atom, std::string>,
-		replies_to<add_atom, std::string, std::string>::with<bool, std::string>
-	>;
+  minimal_server::extend<
+    replies_to<publish_atom, uint16_t, std::vector<uint8_t>, bool>
+      ::with_either<ok_atom, uint16_t>
+      ::or_else<error_atom, std::string>,
+    replies_to<publish_atom, std::string, uint16_t, std::vector<uint8_t>, bool>
+      ::with_either<ok_atom, uint16_t>
+      ::or_else<error_atom, std::string>,
+    replies_to<add_atom, std::string, std::string>::with<bool, std::string>
+  >;
 
 class socks5_service_state {
 public:
-	using doorman_info = std::pair<std::vector<uint8_t>, bool>;
+  using doorman_info = std::pair<std::vector<uint8_t>, bool>;
 
-	socks5_service_state() = default;
+  socks5_service_state() = default;
 
-	socks5_service_state(const socks5_service_state&) = delete;
-	socks5_service_state& operator = (const socks5_service_state&) = delete;
+  socks5_service_state(const socks5_service_state&) = delete;
+  socks5_service_state& operator = (const socks5_service_state&) = delete;
 
-	void set_user_table(const user_table& tbl);
-	const user_table& get_user_table() const;
+  void set_user_table(const user_table& tbl);
+  const user_table& get_user_table() const;
 
-	void add_doorman_info(	accept_handle hdl,
-							const std::vector<uint8_t>& key,
-							bool zlib);
-	doorman_info get_doorman_info(accept_handle hdl) const;
+  void add_doorman_info(accept_handle hdl,
+                        const std::vector<uint8_t>& key,
+                        bool zlib);
+  doorman_info get_doorman_info(accept_handle hdl) const;
 
 private:
-	user_table m_user_tbl;
-	std::unordered_map<accept_handle, doorman_info> m_info_map;
+  user_table m_user_tbl;
+  std::unordered_map<accept_handle, doorman_info> m_info_map;
 };
 
 socks5_service::behavior_type
 socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self,
-					int timeout, bool verbose, const std::string& log);
+                    int timeout, bool verbose, const std::string& log);
 
 } }
 
-#endif	// RANGER_PROXY_SOCKS5_SERVICE_HPP
+#endif  // RANGER_PROXY_SOCKS5_SERVICE_HPP

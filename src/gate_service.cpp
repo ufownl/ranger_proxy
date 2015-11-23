@@ -22,91 +22,91 @@
 namespace ranger { namespace proxy {
 
 void gate_service_state::add_host(host_info host) {
-	if (!host.addr.empty() && host.port != 0) {
-		m_hosts.emplace_back(std::move(host));
-	}
+  if (!host.addr.empty() && host.port != 0) {
+    m_hosts.emplace_back(std::move(host));
+  }
 }
 
 gate_service_state::host_info gate_service_state::query_host() {
-	if (m_hosts.empty()) {
-		return {"", 0};
-	}
+  if (m_hosts.empty()) {
+    return {"", 0};
+  }
 
-	if (!m_dist) {
-		std::random_device rd;
-		m_rand_engine.reset(new std::minstd_rand(rd()));
-		m_dist.reset(new std::uniform_int_distribution<size_t>(0, m_hosts.size() - 1));
-	} else if (m_dist->max() != m_hosts.size() - 1) {
-		m_dist.reset(new std::uniform_int_distribution<size_t>(0, m_hosts.size() - 1));
-	}
+  if (!m_dist) {
+    std::random_device rd;
+    m_rand_engine.reset(new std::minstd_rand(rd()));
+    m_dist.reset(new std::uniform_int_distribution<size_t>(0, m_hosts.size() - 1));
+  } else if (m_dist->max() != m_hosts.size() - 1) {
+    m_dist.reset(new std::uniform_int_distribution<size_t>(0, m_hosts.size() - 1));
+  }
 
-	return m_hosts[(*m_dist)(*m_rand_engine)];
+  return m_hosts[(*m_dist)(*m_rand_engine)];
 }
 
 gate_service::behavior_type
-gate_service_impl(	gate_service::stateful_broker_pointer<gate_service_state> self,
-					int timeout, const std::string& log) {
-	self->trap_exit(true);
+gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self,
+                  int timeout, const std::string& log) {
+  self->trap_exit(true);
 
-	if (!log.empty()) {
-		logger_ostream::redirect(self->spawn<linked>(logger_impl, log));
-	}
+  if (!log.empty()) {
+    logger_ostream::redirect(self->spawn<linked>(logger_impl, log));
+  }
 
-	return {
-		[self, timeout] (const new_connection_msg& msg) {
-			auto host = self->state.query_host();
-			if (host.port != 0) {
-				auto forked =
-					self->fork(	gate_session_impl, msg.handle, host.addr, host.port,
-								host.key, host.zlib, timeout);
-				self->link_to(forked);
-			} else {
-				ranger::proxy::log(self) << "ERROR: Hosts list is empty" << std::endl;
-				self->close(msg.handle);
-			}
-		},
-		[] (const new_data_msg&) {},
-		[] (const connection_closed_msg&) {},
-		[] (const acceptor_closed_msg&) {},
-		[self] (publish_atom, uint16_t port)
-			-> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
-			try {
-				return {
-					ok_atom::value,
-					self->add_tcp_doorman(port, nullptr, true).second
-				};
-			} catch (const network_error& e) {
-				return {error_atom::value, e.what()};
-			}
-		},
-		[self] (publish_atom, const std::string& host, uint16_t port)
-			-> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
-			try {
-				return {
-					ok_atom::value,
-					self->add_tcp_doorman(port, host.c_str(), true).second
-				};
-			} catch (const network_error& e) {
-				return {error_atom::value, e.what()};
-			}
-		},
-		[self] (add_atom, const std::string& addr, uint16_t port,
-				const std::vector<uint8_t>& key, bool zlib) {
-			gate_service_state::host_info host;
-			host.addr = addr;
-			host.port = port;
-			host.key = key;
-			host.zlib = zlib;
-			self->state.add_host(std::move(host));
-		},
-		[self] (const exit_msg& msg) {
-			if (msg.reason != exit_reason::normal
-				&& msg.reason != exit_reason::user_shutdown
-				&& msg.reason != exit_reason::unhandled_exception) {
-				self->quit(msg.reason);
-			}
-		}
-	};
+  return {
+    [self, timeout] (const new_connection_msg& msg) {
+      auto host = self->state.query_host();
+      if (host.port != 0) {
+        auto forked =
+          self->fork(gate_session_impl, msg.handle, host.addr, host.port,
+                     host.key, host.zlib, timeout);
+        self->link_to(forked);
+      } else {
+        ranger::proxy::log(self) << "ERROR: Hosts list is empty" << std::endl;
+        self->close(msg.handle);
+      }
+    },
+    [] (const new_data_msg&) {},
+    [] (const connection_closed_msg&) {},
+    [] (const acceptor_closed_msg&) {},
+    [self] (publish_atom, uint16_t port)
+      -> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
+      try {
+        return {
+          ok_atom::value,
+          self->add_tcp_doorman(port, nullptr, true).second
+        };
+      } catch (const network_error& e) {
+        return {error_atom::value, e.what()};
+      }
+    },
+    [self] (publish_atom, const std::string& host, uint16_t port)
+      -> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
+      try {
+        return {
+          ok_atom::value,
+          self->add_tcp_doorman(port, host.c_str(), true).second
+        };
+      } catch (const network_error& e) {
+        return {error_atom::value, e.what()};
+      }
+    },
+    [self] (add_atom, const std::string& addr, uint16_t port,
+            const std::vector<uint8_t>& key, bool zlib) {
+      gate_service_state::host_info host;
+      host.addr = addr;
+      host.port = port;
+      host.key = key;
+      host.zlib = zlib;
+      self->state.add_host(std::move(host));
+    },
+    [self] (const exit_msg& msg) {
+      if (msg.reason != exit_reason::normal
+        && msg.reason != exit_reason::user_shutdown
+        && msg.reason != exit_reason::unhandled_exception) {
+        self->quit(msg.reason);
+      }
+    }
+  };
 }
 
 } }

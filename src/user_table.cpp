@@ -22,24 +22,24 @@
 namespace ranger { namespace proxy {
 
 user_table::behavior_type user_table_impl(user_table::pointer self) {
-	auto tbl = std::make_shared<std::unordered_map<std::string, std::string>>();
-	return {
-		[=] (add_atom, const std::string& username, const std::string& password) {
-			return std::make_tuple(tbl->emplace(username, password).second, username);
-		},
-		[=] (auth_atom, const std::string& username, const std::string& password) {
-			auto it = tbl->find(username);
-			if (it == tbl->end()) {
-				return std::make_tuple(auth_atom::value, false);
-			}
+  auto tbl = std::make_shared<std::unordered_map<std::string, std::string>>();
+  return {
+    [=] (add_atom, const std::string& username, const std::string& password) {
+      return std::make_tuple(tbl->emplace(username, password).second, username);
+    },
+    [=] (auth_atom, const std::string& username, const std::string& password) {
+      auto it = tbl->find(username);
+      if (it == tbl->end()) {
+        return std::make_tuple(auth_atom::value, false);
+      }
 
-			if (it->second != password) {
-				return std::make_tuple(auth_atom::value, false);
-			}
+      if (it->second != password) {
+        return std::make_tuple(auth_atom::value, false);
+      }
 
-			return std::make_tuple(auth_atom::value, true);
-		}
-	};
+      return std::make_tuple(auth_atom::value, true);
+    }
+  };
 }
 
 } }
