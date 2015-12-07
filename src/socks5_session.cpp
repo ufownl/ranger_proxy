@@ -420,14 +420,7 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
         << m_self->remote_port(m_remote_hdl) << "]" << std::endl;
     }
     
-    std::vector<char> buf = {0x05, 0x00, 0x00, 0x01};
-    buf.insert(buf.end(),
-               reinterpret_cast<const char*>(&addr),
-               reinterpret_cast<const char*>(&addr) + sizeof(addr));
-    buf.insert(buf.end(),
-               reinterpret_cast<const char*>(&port),
-               reinterpret_cast<const char*>(&port) + sizeof(port));
-    write_to_local(std::move(buf));
+    write_to_local({0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
 
     m_self->configure_read(m_remote_hdl, receive_policy::at_most(BUFFER_SIZE));
   };
@@ -436,14 +429,7 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
     log(m_self) << "ERROR: " << what << " ["
       << m_self->remote_addr(m_local_hdl) << ":"
       << m_self->remote_port(m_local_hdl) << "]" << std::endl;
-    std::vector<char> buf = {0x05, 0x05, 0x00, 0x01};
-    buf.insert(buf.end(),
-               reinterpret_cast<const char*>(&addr),
-               reinterpret_cast<const char*>(&addr) + sizeof(addr));
-    buf.insert(buf.end(),
-               reinterpret_cast<const char*>(&port),
-               reinterpret_cast<const char*>(&port) + sizeof(port));
-    write_to_local(std::move(buf));
+    write_to_local({0x05, 0x05, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
   };
 
   return true;
@@ -477,12 +463,7 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
           << m_self->remote_port(m_remote_hdl) << "]" << std::endl;
       }
 
-      std::vector<char> buf = {0x05, 0x00, 0x00, 0x03, static_cast<char>(host.size())};
-      buf.insert(buf.end(), host.begin(), host.end());
-      buf.insert(buf.end(),
-                 reinterpret_cast<const char*>(&port),
-                 reinterpret_cast<const char*>(&port) + sizeof(port));
-      write_to_local(std::move(buf));
+      write_to_local({0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
 
       m_self->configure_read(m_remote_hdl, receive_policy::at_most(BUFFER_SIZE));
     };
@@ -491,12 +472,7 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
       log(m_self) << "ERROR: " << what << " ["
         << m_self->remote_addr(m_local_hdl) << ":"
         << m_self->remote_port(m_local_hdl) << "]" << std::endl;
-      std::vector<char> buf = {0x05, 0x05, 0x00, 0x03, static_cast<char>(host.size())};
-      buf.insert(buf.end(), host.begin(), host.end());
-      buf.insert(buf.end(),
-                 reinterpret_cast<const char*>(&port),
-                 reinterpret_cast<const char*>(&port) + sizeof(port));
-      write_to_local(std::move(buf));
+      write_to_local({0x05, 0x05, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00});
     };
 
     return true;

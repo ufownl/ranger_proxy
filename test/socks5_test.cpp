@@ -93,12 +93,10 @@ TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
     ASSERT_EQ(0x00, buf[1]);
     ASSERT_EQ(0x00, buf[2]);
     ASSERT_EQ(0x01, buf[3]);
-    uint32_t remote_addr;
-    ASSERT_EQ(sizeof(remote_addr), recv(fd, &remote_addr, sizeof(remote_addr), 0));
-    ASSERT_EQ(sin.sin_addr.s_addr, remote_addr);
-    uint16_t remote_port;
-    ASSERT_EQ(sizeof(remote_port), recv(fd, &remote_port, sizeof(remote_port), 0));
-    ASSERT_EQ(htons(m_port), remote_port);
+    uint32_t reply_addr;
+    ASSERT_EQ(sizeof(reply_addr), recv(fd, &reply_addr, sizeof(reply_addr), 0));
+    uint16_t reply_port;
+    ASSERT_EQ(sizeof(reply_port), recv(fd, &reply_port, sizeof(reply_port), 0));
   }
 
   {
@@ -175,15 +173,11 @@ TEST_F(echo_test, socks5_no_auth_conn_domainname) {
     ASSERT_EQ(0x05, buf[0]);
     ASSERT_EQ(0x00, buf[1]);
     ASSERT_EQ(0x00, buf[2]);
-    ASSERT_EQ(0x03, buf[3]);
-    uint8_t len;
-    ASSERT_EQ(sizeof(len), recv(fd, &len, sizeof(len), 0));
-    char ip[sizeof("127.0.0.1")] = {0};
-    ASSERT_EQ(len, recv(fd, ip, len, 0));
-    ASSERT_STREQ("127.0.0.1", ip);
-    uint16_t remote_port;
-    ASSERT_EQ(sizeof(remote_port), recv(fd, &remote_port, sizeof(remote_port), 0));
-    ASSERT_EQ(htons(m_port), remote_port);
+    ASSERT_EQ(0x01, buf[3]);
+    uint32_t reply_addr;
+    ASSERT_EQ(sizeof(reply_addr), recv(fd, &reply_addr, sizeof(reply_addr), 0));
+    uint16_t reply_port;
+    ASSERT_EQ(sizeof(reply_port), recv(fd, &reply_port, sizeof(reply_port), 0));
   }
 
   {
@@ -254,16 +248,14 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_ipv4_null) {
       // reply
       uint8_t buf[4];
       ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
-      EXPECT_EQ(0x05, buf[0]);
-      EXPECT_EQ(0x05, buf[1]);
-      EXPECT_EQ(0x00, buf[2]);
-      EXPECT_EQ(0x01, buf[3]);
-      uint32_t remote_addr;
-      ASSERT_EQ(sizeof(remote_addr), recv(fd, &remote_addr, sizeof(remote_addr), 0));
-      EXPECT_EQ(sin.sin_addr.s_addr, remote_addr);
-      uint16_t remote_port;
-      ASSERT_EQ(sizeof(remote_port), recv(fd, &remote_port, sizeof(remote_port), 0));
-      EXPECT_EQ(htons(0), remote_port);
+      ASSERT_EQ(0x05, buf[0]);
+      ASSERT_EQ(0x05, buf[1]);
+      ASSERT_EQ(0x00, buf[2]);
+      ASSERT_EQ(0x01, buf[3]);
+      uint32_t reply_addr;
+      ASSERT_EQ(sizeof(reply_addr), recv(fd, &reply_addr, sizeof(reply_addr), 0));
+      uint16_t reply_port;
+      ASSERT_EQ(sizeof(reply_port), recv(fd, &reply_port, sizeof(reply_port), 0));
     }
   }
 }
@@ -330,18 +322,14 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_domainname_null) {
       // reply
       uint8_t buf[4];
       ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
-      EXPECT_EQ(0x05, buf[0]);
-      EXPECT_EQ(0x05, buf[1]);
-      EXPECT_EQ(0x00, buf[2]);
-      EXPECT_EQ(0x03, buf[3]);
-      uint8_t len;
-      ASSERT_EQ(sizeof(len), recv(fd, &len, sizeof(len), 0));
-      char ip[sizeof("127.0.0.1")] = {0};
-      ASSERT_EQ(len, recv(fd, ip, len, 0));
-      EXPECT_STREQ("127.0.0.1", ip);
-      uint16_t remote_port;
-      ASSERT_EQ(sizeof(remote_port), recv(fd, &remote_port, sizeof(remote_port), 0));
-      EXPECT_EQ(htons(0), remote_port);
+      ASSERT_EQ(0x05, buf[0]);
+      ASSERT_EQ(0x05, buf[1]);
+      ASSERT_EQ(0x00, buf[2]);
+      ASSERT_EQ(0x01, buf[3]);
+      uint32_t reply_addr;
+      ASSERT_EQ(sizeof(reply_addr), recv(fd, &reply_addr, sizeof(reply_addr), 0));
+      uint16_t reply_port;
+      ASSERT_EQ(sizeof(reply_port), recv(fd, &reply_port, sizeof(reply_port), 0));
     }
   }
 }
@@ -430,12 +418,10 @@ TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
     ASSERT_EQ(0x00, buf[1]);
     ASSERT_EQ(0x00, buf[2]);
     ASSERT_EQ(0x01, buf[3]);
-    uint32_t remote_addr;
-    ASSERT_EQ(sizeof(remote_addr), recv(fd, &remote_addr, sizeof(remote_addr), 0));
-    ASSERT_EQ(sin.sin_addr.s_addr, remote_addr);
-    uint16_t remote_port;
-    ASSERT_EQ(sizeof(remote_port), recv(fd, &remote_port, sizeof(remote_port), 0));
-    ASSERT_EQ(htons(m_port), remote_port);
+    uint32_t reply_addr;
+    ASSERT_EQ(sizeof(reply_addr), recv(fd, &reply_addr, sizeof(reply_addr), 0));
+    uint16_t reply_port;
+    ASSERT_EQ(sizeof(reply_port), recv(fd, &reply_port, sizeof(reply_port), 0));
   }
 
   {
@@ -528,16 +514,14 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
     // reply
     uint8_t buf[4];
     ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
-    EXPECT_EQ(0x05, buf[0]);
-    EXPECT_EQ(0x05, buf[1]);
-    EXPECT_EQ(0x00, buf[2]);
-    EXPECT_EQ(0x01, buf[3]);
-    uint32_t remote_addr;
-    ASSERT_EQ(sizeof(remote_addr), recv(fd, &remote_addr, sizeof(remote_addr), 0));
-    EXPECT_EQ(sin.sin_addr.s_addr, remote_addr);
-    uint16_t remote_port;
-    ASSERT_EQ(sizeof(remote_port), recv(fd, &remote_port, sizeof(remote_port), 0));
-    EXPECT_EQ(htons(0), remote_port);
+    ASSERT_EQ(0x05, buf[0]);
+    ASSERT_EQ(0x05, buf[1]);
+    ASSERT_EQ(0x00, buf[2]);
+    ASSERT_EQ(0x01, buf[3]);
+    uint32_t reply_addr;
+    ASSERT_EQ(sizeof(reply_addr), recv(fd, &reply_addr, sizeof(reply_addr), 0));
+    uint16_t reply_port;
+    ASSERT_EQ(sizeof(reply_port), recv(fd, &reply_port, sizeof(reply_port), 0));
   }
 
   while (caf::detail::singletons::get_actor_registry()->running() > 2) {
@@ -628,18 +612,14 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
     // reply
     uint8_t buf[4];
     ASSERT_EQ(sizeof(buf), recv(fd, buf, sizeof(buf), 0));
-    EXPECT_EQ(0x05, buf[0]);
-    EXPECT_EQ(0x05, buf[1]);
-    EXPECT_EQ(0x00, buf[2]);
-    EXPECT_EQ(0x03, buf[3]);
-    uint8_t len;
-    ASSERT_EQ(sizeof(len), recv(fd, &len, sizeof(len), 0));
-    char ip[sizeof("127.0.0.1")] = {0};
-    ASSERT_EQ(len, recv(fd, ip, len, 0));
-    EXPECT_STREQ("127.0.0.1", ip);
-    uint16_t remote_port;
-    ASSERT_EQ(sizeof(remote_port), recv(fd, &remote_port, sizeof(remote_port), 0));
-    EXPECT_EQ(htons(0), remote_port);
+    ASSERT_EQ(0x05, buf[0]);
+    ASSERT_EQ(0x05, buf[1]);
+    ASSERT_EQ(0x00, buf[2]);
+    ASSERT_EQ(0x01, buf[3]);
+    uint32_t reply_addr;
+    ASSERT_EQ(sizeof(reply_addr), recv(fd, &reply_addr, sizeof(reply_addr), 0));
+    uint16_t reply_port;
+    ASSERT_EQ(sizeof(reply_port), recv(fd, &reply_port, sizeof(reply_port), 0));
   }
 
   while (caf::detail::singletons::get_actor_registry()->running() > 2) {
@@ -732,12 +712,10 @@ TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
     ASSERT_EQ(0x00, buf[1]);
     ASSERT_EQ(0x00, buf[2]);
     ASSERT_EQ(0x01, buf[3]);
-    uint32_t remote_addr;
-    ASSERT_EQ(sizeof(remote_addr), recv(fd, &remote_addr, sizeof(remote_addr), 0));
-    ASSERT_EQ(sin.sin_addr.s_addr, remote_addr);
-    uint16_t remote_port;
-    ASSERT_EQ(sizeof(remote_port), recv(fd, &remote_port, sizeof(remote_port), 0));
-    ASSERT_EQ(htons(m_port), remote_port);
+    uint32_t reply_addr;
+    ASSERT_EQ(sizeof(reply_addr), recv(fd, &reply_addr, sizeof(reply_addr), 0));
+    uint16_t reply_port;
+    ASSERT_EQ(sizeof(reply_port), recv(fd, &reply_port, sizeof(reply_port), 0));
   }
 
   {
@@ -833,12 +811,10 @@ TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
     ASSERT_EQ(0x00, buf[1]);
     ASSERT_EQ(0x00, buf[2]);
     ASSERT_EQ(0x01, buf[3]);
-    uint32_t remote_addr;
-    ASSERT_EQ(sizeof(remote_addr), recv(fd, &remote_addr, sizeof(remote_addr), 0));
-    ASSERT_EQ(sin.sin_addr.s_addr, remote_addr);
-    uint16_t remote_port;
-    ASSERT_EQ(sizeof(remote_port), recv(fd, &remote_port, sizeof(remote_port), 0));
-    ASSERT_EQ(htons(m_port), remote_port);
+    uint32_t reply_addr;
+    ASSERT_EQ(sizeof(reply_addr), recv(fd, &reply_addr, sizeof(reply_addr), 0));
+    uint16_t reply_port;
+    ASSERT_EQ(sizeof(reply_port), recv(fd, &reply_port, sizeof(reply_port), 0));
   }
 
   {
@@ -938,15 +914,11 @@ TEST_F(echo_test, socks5_username_auth_conn_domainname) {
     ASSERT_EQ(0x05, buf[0]);
     ASSERT_EQ(0x00, buf[1]);
     ASSERT_EQ(0x00, buf[2]);
-    ASSERT_EQ(0x03, buf[3]);
-    uint8_t len;
-    ASSERT_EQ(sizeof(len), recv(fd, &len, sizeof(len), 0));
-    char ip[sizeof("127.0.0.1")] = {0};
-    ASSERT_EQ(len, recv(fd, ip, len, 0));
-    ASSERT_STREQ("127.0.0.1", ip);
-    uint16_t remote_port;
-    ASSERT_EQ(sizeof(remote_port), recv(fd, &remote_port, sizeof(remote_port), 0));
-    ASSERT_EQ(htons(m_port), remote_port);
+    ASSERT_EQ(0x01, buf[3]);
+    uint32_t reply_addr;
+    ASSERT_EQ(sizeof(reply_addr), recv(fd, &reply_addr, sizeof(reply_addr), 0));
+    uint16_t reply_port;
+    ASSERT_EQ(sizeof(reply_port), recv(fd, &reply_port, sizeof(reply_port), 0));
   }
 
   {
