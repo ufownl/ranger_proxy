@@ -28,4 +28,4 @@ deadline_timer_impl(deadline_timer::pointer self, int timeout);
 
 } }
 
-#endif	// RANGER_PROXY_DEADLINE_TIMER_HPP
+#endif  // RANGER_PROXY_DEADLINE_TIMER_HPP

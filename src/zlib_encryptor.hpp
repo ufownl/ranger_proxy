@@ -25,31 +25,31 @@ namespace ranger { namespace proxy {
 
 class zlib_state {
 public:
-	using encrypt_promise_type =
-		typed_response_promise<encrypt_atom, std::vector<char>>;
+  using encrypt_promise_type =
+    typed_response_promise<encrypt_atom, std::vector<char>>;
 
-	using decrypt_promise_type =
-		typed_response_promise<decrypt_atom, std::vector<char>>;
+  using decrypt_promise_type =
+    typed_response_promise<decrypt_atom, std::vector<char>>;
 
-	zlib_state(encryptor::pointer self);
-	~zlib_state();
+  zlib_state(encryptor::pointer self);
+  ~zlib_state();
 
-	zlib_state(const zlib_state&) = delete;
-	zlib_state& operator = (const zlib_state&) = delete;
+  zlib_state(const zlib_state&) = delete;
+  zlib_state& operator = (const zlib_state&) = delete;
 
-	void init(const encryptor& enc);
+  void init(const encryptor& enc);
 
-	encrypt_promise_type encrypt(const std::vector<char>& in);
-	decrypt_promise_type decrypt(const std::vector<char>& in);
+  encrypt_promise_type encrypt(const std::vector<char>& in);
+  decrypt_promise_type decrypt(const std::vector<char>& in);
 
 private:
-	std::vector<char> compress(const std::vector<char>& in);
-	std::vector<char> uncompress(const std::vector<char>& in);
+  std::vector<char> compress(const std::vector<char>& in);
+  std::vector<char> uncompress(const std::vector<char>& in);
 
-	encryptor::pointer m_self;
-	encryptor m_encryptor;
-	z_stream m_deflate_strm {0};
-	z_stream m_inflate_strm {0};
+  encryptor::pointer m_self;
+  encryptor m_encryptor;
+  z_stream m_deflate_strm {0};
+  z_stream m_inflate_strm {0};
 };
 
 encryptor::behavior_type
@@ -57,4 +57,4 @@ zlib_encryptor_impl(encryptor::stateful_pointer<zlib_state> self, encryptor enc)
 
 } }
 
-#endif	// RANGER_PROXY_ZLIB_ENCRYPTOR_HPP
+#endif  // RANGER_PROXY_ZLIB_ENCRYPTOR_HPP

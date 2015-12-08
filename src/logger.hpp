@@ -28,17 +28,17 @@ using logger = typed_actor<reacts_to<std::string>>;
 
 class logger_state {
 public:
-	logger_state() = default;
+  logger_state() = default;
 
-	logger_state(const logger_state&) = delete;
-	logger_state& operator = (const logger_state&) = delete;
+  logger_state(const logger_state&) = delete;
+  logger_state& operator = (const logger_state&) = delete;
 
-	void init(const std::string& path);
-	void write(const std::string& content);
+  void init(const std::string& path);
+  void write(const std::string& content);
 
 private:
-	std::unique_ptr<std::ofstream> m_fout;
-	std::vector<char> m_buf;
+  std::unique_ptr<std::ofstream> m_fout;
+  std::vector<char> m_buf;
 };
 
 logger::behavior_type
@@ -46,4 +46,4 @@ logger_impl(logger::stateful_pointer<logger_state> self, const std::string& path
 
 } }
 
-#endif	// RANGER_PROXY_LOGGER_HPP
+#endif  // RANGER_PROXY_LOGGER_HPP

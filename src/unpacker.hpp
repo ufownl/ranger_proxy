@@ -26,69 +26,69 @@ namespace ranger { namespace proxy {
 template <class SizeType>
 class unpacker {
 public:
-	using size_type = SizeType;
+  using size_type = SizeType;
 
-	unpacker() = default;
+  unpacker() = default;
 
-	unpacker(const unpacker&) = delete;
-	unpacker& operator = (const unpacker&) = delete;
+  unpacker(const unpacker&) = delete;
+  unpacker& operator = (const unpacker&) = delete;
 
-	void append(std::vector<char> buf) {
-		m_current_len += buf.size();
-		m_buffers.emplace(std::move(buf));
-		consume();
-	}
+  void append(std::vector<char> buf) {
+    m_current_len += buf.size();
+    m_buffers.emplace(std::move(buf));
+    consume();
+  }
 
-	template <class T>
-	void expect(size_type len, T&& handler) {
-		m_expected_len = len;
-		m_expected_handler = std::forward<T>(handler);
-		consume();
-	}
+  template <class T>
+  void expect(size_type len, T&& handler) {
+    m_expected_len = len;
+    m_expected_handler = std::forward<T>(handler);
+    consume();
+  }
 
 private:
-	void consume() {
-		if (m_consuming) {
-			return;
-		}
+  void consume() {
+    if (m_consuming) {
+      return;
+    }
 
-		m_consuming = true;
-		scope_guard consuming_guard([this] { m_consuming = false; });
+    m_consuming = true;
+    scope_guard consuming_guard([this] { m_consuming = false; });
 
-		while (m_expected_len > 0 && m_current_len - m_offset >= m_expected_len) {
-			std::vector<char> expected_buf;
-			do {
-				if (m_offset + m_expected_len < m_buffers.front().size()) {
-					expected_buf.insert(expected_buf.end(),
-										m_buffers.front().begin() + m_offset,
-										m_buffers.front().begin() + m_offset + m_expected_len);
-					m_offset += m_expected_len;
-					m_expected_len = 0;
-				} else {
-					expected_buf.insert(expected_buf.end(),
-										m_buffers.front().begin() + m_offset,
-										m_buffers.front().end());
-					m_current_len -= m_buffers.front().size();
-					m_expected_len -= m_buffers.front().size() - m_offset;
-					m_offset = 0;
-					m_buffers.pop();
-				}
-			} while (m_expected_len > 0);
+    while (m_expected_len > 0 && m_current_len - m_offset >= m_expected_len) {
+      std::vector<char> expected_buf;
+      do {
+        if (m_offset + m_expected_len < m_buffers.front().size()) {
+          expected_buf.insert(expected_buf.end(),
+                              m_buffers.front().begin() + m_offset,
+                              m_buffers.front().begin() + m_offset + m_expected_len);
+          m_offset += m_expected_len;
+          m_expected_len = 0;
+        } else {
+          expected_buf.insert(expected_buf.end(),
+                              m_buffers.front().begin() + m_offset,
+                              m_buffers.front().end());
+          m_current_len -= m_buffers.front().size();
+          m_expected_len -= m_buffers.front().size() - m_offset;
+          m_offset = 0;
+          m_buffers.pop();
+        }
+      } while (m_expected_len > 0);
 
-			if (!m_expected_handler(std::move(expected_buf))) {
-				break;
-			}
-		}
-	}
+      if (!m_expected_handler(std::move(expected_buf))) {
+        break;
+      }
+    }
+  }
 
-	std::queue<std::vector<char>> m_buffers;
-	size_t m_current_len {0};
-	size_type m_offset {0};
-	size_type m_expected_len {0};
-	std::function<bool(std::vector<char>)> m_expected_handler;
-	bool m_consuming {false};
+  std::queue<std::vector<char>> m_buffers;
+  size_t m_current_len {0};
+  size_type m_offset {0};
+  size_type m_expected_len {0};
+  std::function<bool(std::vector<char>)> m_expected_handler;
+  bool m_consuming {false};
 };
 
 } }
 
-#endif	// RANGER_PROXY_UNPACKER_HPP
+#endif  // RANGER_PROXY_UNPACKER_HPP

@@ -24,29 +24,29 @@ namespace ranger { namespace proxy {
 
 class aes_cfb128_state {
 public:
-	aes_cfb128_state() = default;
+  aes_cfb128_state() = default;
 
-	aes_cfb128_state(const aes_cfb128_state&) = delete;
-	aes_cfb128_state& operator = (const aes_cfb128_state&) = delete;
+  aes_cfb128_state(const aes_cfb128_state&) = delete;
+  aes_cfb128_state& operator = (const aes_cfb128_state&) = delete;
 
-	void init(std::vector<uint8_t> key, std::vector<uint8_t> ivec);
+  void init(std::vector<uint8_t> key, std::vector<uint8_t> ivec);
 
-	std::vector<char> encrypt(const std::vector<char>& in);
-	std::vector<char> decrypt(const std::vector<char>& in);
+  std::vector<char> encrypt(const std::vector<char>& in);
+  std::vector<char> decrypt(const std::vector<char>& in);
 
 private:
-	AES_KEY m_key {{0}};
-	std::vector<uint8_t> m_encrypt_ivec;
-	int m_encrypt_num {0};
-	std::vector<uint8_t> m_decrypt_ivec;
-	int m_decrypt_num {0};
+  AES_KEY m_key {{0}};
+  std::vector<uint8_t> m_encrypt_ivec;
+  int m_encrypt_num {0};
+  std::vector<uint8_t> m_decrypt_ivec;
+  int m_decrypt_num {0};
 };
 
 encryptor::behavior_type
-aes_cfb128_encryptor_impl(	encryptor::stateful_pointer<aes_cfb128_state> self,
-							const std::vector<uint8_t>& key,
-							const std::vector<uint8_t>& ivec);
+aes_cfb128_encryptor_impl(encryptor::stateful_pointer<aes_cfb128_state> self,
+                          const std::vector<uint8_t>& key,
+                          const std::vector<uint8_t>& ivec);
 
 } }
 
-#endif	// RANGER_PROXY_AES_CFB128_ENCRYPTOR_HPP
+#endif  // RANGER_PROXY_AES_CFB128_ENCRYPTOR_HPP

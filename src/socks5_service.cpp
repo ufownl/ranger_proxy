@@ -23,105 +23,105 @@
 namespace ranger { namespace proxy {
 
 void socks5_service_state::set_user_table(const user_table& tbl) {
-	m_user_tbl = tbl;
+  m_user_tbl = tbl;
 }
 
 const user_table& socks5_service_state::get_user_table() const {
-	return m_user_tbl;
+  return m_user_tbl;
 }
 
 void socks5_service_state::add_doorman_info(accept_handle hdl,
-											const std::vector<uint8_t>& key,
-											bool zlib) {
-	auto& info = m_info_map[hdl];
-	info.first = key;
-	info.second = zlib;
+                                            const std::vector<uint8_t>& key,
+                                            bool zlib) {
+  auto& info = m_info_map[hdl];
+  info.first = key;
+  info.second = zlib;
 }
 
 socks5_service_state::doorman_info
 socks5_service_state::get_doorman_info(accept_handle hdl) const {
-	auto it = m_info_map.find(hdl);
-	if (it == m_info_map.end()) {
-		return {{}, false};
-	} else {
-		return it->second;
-	}
+  auto it = m_info_map.find(hdl);
+  if (it == m_info_map.end()) {
+    return {{}, false};
+  } else {
+    return it->second;
+  }
 }
 
 socks5_service::behavior_type
 socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self,
-					int timeout, bool verbose, const std::string& log) {
-	self->trap_exit(true);
+                    int timeout, bool verbose, const std::string& log) {
+  self->trap_exit(true);
 
-	if (!log.empty()) {
-		logger_ostream::redirect(self->spawn<linked>(logger_impl, log));
-	}
+  if (!log.empty()) {
+    logger_ostream::redirect(self->spawn<linked>(logger_impl, log));
+  }
 
-	std::random_device dev;
-	std::minstd_rand rd(dev());
-	return {
-		[rd, self, timeout, verbose] (const new_connection_msg& msg) mutable {
-			auto info = self->state.get_doorman_info(msg.source);
-			uint32_t seed = 0;
-			if (!info.first.empty()) {
-				seed = rd();
-				if (verbose) {
-					ranger::proxy::log(self) << "INFO: Initialization vector seed[" << seed << "]" << std::endl;
-				}
+  std::random_device dev;
+  std::minstd_rand rd(dev());
+  return {
+    [rd, self, timeout, verbose] (const new_connection_msg& msg) mutable {
+      auto info = self->state.get_doorman_info(msg.source);
+      uint32_t seed = 0;
+      if (!info.first.empty()) {
+        seed = rd();
+        if (verbose) {
+          ranger::proxy::log(self) << "INFO: Initialization vector seed[" << seed << "]" << std::endl;
+        }
 
-				self->write(msg.handle, sizeof(seed), &seed);
-				self->flush(msg.handle);
-			}
+        self->write(msg.handle, sizeof(seed), &seed);
+        self->flush(msg.handle);
+      }
 
-			auto forked =
-				self->fork(	socks5_session_impl, msg.handle,
-							self->state.get_user_table(),
-							info.first, seed, info.second,
-							timeout, verbose);
-			self->link_to(forked);
-		},
-		[] (const new_data_msg&) {},
-		[] (const connection_closed_msg&) {},
-		[] (const acceptor_closed_msg&) {},
-		[self] (publish_atom, uint16_t port,
-				const std::vector<uint8_t>& key, bool zlib)
-			-> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
-			try {
-				auto doorman = self->add_tcp_doorman(port, nullptr, true);
-				self->state.add_doorman_info(doorman.first, key, zlib);
-				return {ok_atom::value, doorman.second};
-			} catch (const std::exception& e) {
-				return {error_atom::value, e.what()};
-			}
-		},
-		[self] (publish_atom, const std::string& host, uint16_t port,
-				const std::vector<uint8_t>& key, bool zlib)
-			-> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
-			try {
-				auto doorman = self->add_tcp_doorman(port, host.c_str(), true);
-				self->state.add_doorman_info(doorman.first, key, zlib);
-				return {ok_atom::value, doorman.second};
-			} catch (const std::exception& e) {
-				return {error_atom::value, e.what()};
-			}
-		},
-		[self] (add_atom, const std::string& username, const std::string& password) {
-			auto tbl = self->state.get_user_table();
-			if (!tbl) {
-				tbl = self->spawn<linked>(user_table_impl);
-				self->state.set_user_table(tbl);
-			}
+      auto forked =
+        self->fork(socks5_session_impl, msg.handle,
+                   self->state.get_user_table(),
+                   info.first, seed, info.second,
+                   timeout, verbose);
+      self->link_to(forked);
+    },
+    [] (const new_data_msg&) {},
+    [] (const connection_closed_msg&) {},
+    [] (const acceptor_closed_msg&) {},
+    [self] (publish_atom, uint16_t port,
+            const std::vector<uint8_t>& key, bool zlib)
+      -> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
+      try {
+        auto doorman = self->add_tcp_doorman(port, nullptr, true);
+        self->state.add_doorman_info(doorman.first, key, zlib);
+        return {ok_atom::value, doorman.second};
+      } catch (const std::exception& e) {
+        return {error_atom::value, e.what()};
+      }
+    },
+    [self] (publish_atom, const std::string& host, uint16_t port,
+            const std::vector<uint8_t>& key, bool zlib)
+      -> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
+      try {
+        auto doorman = self->add_tcp_doorman(port, host.c_str(), true);
+        self->state.add_doorman_info(doorman.first, key, zlib);
+        return {ok_atom::value, doorman.second};
+      } catch (const std::exception& e) {
+        return {error_atom::value, e.what()};
+      }
+    },
+    [self] (add_atom, const std::string& username, const std::string& password) {
+      auto tbl = self->state.get_user_table();
+      if (!tbl) {
+        tbl = self->spawn<linked>(user_table_impl);
+        self->state.set_user_table(tbl);
+      }
 
-			return self->delegate(tbl, add_atom::value, username, password);
-		},
-		[self] (const exit_msg& msg) {
-			if (msg.reason != exit_reason::normal
-				&& msg.reason != exit_reason::user_shutdown
-				&& msg.reason != exit_reason::unhandled_exception) {
-				self->quit(msg.reason);
-			}
-		}
-	};
+      return self->delegate(tbl, add_atom::value, username, password);
+    },
+    [self] (const exit_msg& msg) {
+      if (msg.reason != exit_reason::normal
+          && msg.reason != exit_reason::user_shutdown
+          && msg.reason != exit_reason::unhandled_exception) {
+        self->quit(msg.reason);
+      }
+    }
+  };
 }
 
 } }
