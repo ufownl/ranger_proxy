@@ -20,6 +20,9 @@
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 
+// experimental headers
+#include <caf/io/experimental/typed_broker.hpp>
+
 namespace ranger { namespace proxy {
 
 const size_t BUFFER_SIZE = 256 * 1024;  // default: 256k

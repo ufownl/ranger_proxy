@@ -30,18 +30,19 @@ namespace {
 template <class T>
 void handle_connect_completed(T* self,
                               const std::string& ep_info,
-                              network::default_socket&& fd,
+                              network::asio_tcp_socket&& fd,
                               const boost::system::error_code& ec) {
   if (ec) {
-    if (self->exit_reason() == exit_reason::not_exited) {
+    if (!self->exited()) {
       log(self) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
-      self->send(self, error_atom::value, "could not connect to host: " + ep_info);
+      //self->send(self, error_atom::value, "could not connect to host: " + ep_info);
+      self->send(self, error());
     } else {
-      scoped_actor tmp;
+      scoped_actor tmp(self->system());
       log(tmp) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
     }
   } else {
-    if (self->exit_reason() == exit_reason::not_exited) {
+    if (!self->exited()) {
       auto& backend = static_cast<network::asio_multiplexer&>(self->parent().backend());
       auto hdl = backend.add_tcp_scribe(self, std::move(fd));
       self->send(self, ok_atom::value, hdl);
@@ -59,7 +60,7 @@ void handle_connect_completed(T* self,
 template <class T>
 void async_connect(intrusive_ptr<T> self, const in_addr& addr, uint16_t port) {
   std::string ep_info = std::string(inet_ntoa(addr)) + ":" + std::to_string(port);
-  auto fd = std::make_shared<network::default_socket>(*self->parent().backend().pimpl());
+  auto fd = std::make_shared<network::asio_tcp_socket>(*self->parent().backend().pimpl());
   using boost::asio::ip::tcp;
   using boost::asio::ip::address_v4;
   fd->async_connect(tcp::endpoint(address_v4(ntohl(addr.s_addr)), port),
@@ -78,15 +79,16 @@ void async_connect(intrusive_ptr<T> self, const std::string& host, uint16_t port
   r->async_resolve(tcp::resolver::query(host, std::to_string(port)),
     [self, ep_info, r] (const error_code& ec, tcp::resolver::iterator it) {
       if (ec) {
-        if (self->exit_reason() == exit_reason::not_exited) {
+        if (!self->exited()) {
           log(self.get()) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
-          self->send(self, error_atom::value, "could not resolve host: " + ep_info);
+          //self->send(self, error_atom::value, "could not resolve host: " + ep_info);
+          self->send(self, error());
         } else {
-          scoped_actor tmp;
+          scoped_actor tmp(self->system());
           log(tmp) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
         }
-      } else if (self->exit_reason() == exit_reason::not_exited) {
-        auto fd = std::make_shared<network::default_socket>(*self->parent().backend().pimpl());
+      } else if (!self->exited()) {
+        auto fd = std::make_shared<network::asio_tcp_socket>(*self->parent().backend().pimpl());
         boost::asio::async_connect(*fd, it,
           [self, ep_info, fd] (const error_code& ec, tcp::resolver::iterator it) {
             handle_connect_completed(self.get(), ep_info, std::move(*fd), ec);

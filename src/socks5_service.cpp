@@ -84,25 +84,25 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
     [] (const connection_closed_msg&) {},
     [] (const acceptor_closed_msg&) {},
     [self] (publish_atom, uint16_t port,
-            const std::vector<uint8_t>& key, bool zlib)
-      -> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
+            const std::vector<uint8_t>& key, bool zlib) -> maybe<uint16_t> {
       try {
         auto doorman = self->add_tcp_doorman(port, nullptr, true);
         self->state.add_doorman_info(doorman.first, key, zlib);
-        return {ok_atom::value, doorman.second};
+        return doorman.second;
       } catch (const std::exception& e) {
-        return {error_atom::value, e.what()};
+        //return {error_atom::value, e.what()};
+        return error();
       }
     },
     [self] (publish_atom, const std::string& host, uint16_t port,
-            const std::vector<uint8_t>& key, bool zlib)
-      -> either<ok_atom, uint16_t>::or_else<error_atom, std::string> {
+            const std::vector<uint8_t>& key, bool zlib) -> maybe<uint16_t> {
       try {
         auto doorman = self->add_tcp_doorman(port, host.c_str(), true);
         self->state.add_doorman_info(doorman.first, key, zlib);
-        return {ok_atom::value, doorman.second};
+        return doorman.second;
       } catch (const std::exception& e) {
-        return {error_atom::value, e.what()};
+        //return {error_atom::value, e.what()};
+        return error();
       }
     },
     [self] (add_atom, const std::string& username, const std::string& password) {

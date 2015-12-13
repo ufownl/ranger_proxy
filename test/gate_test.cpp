@@ -27,7 +27,7 @@
 #include <arpa/inet.h>
 
 TEST_F(echo_test, gate_echo) {
-  auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300, std::string());
+  auto gate = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
   scope_guard guard_gate([gate] {
     caf::anon_send_exit(gate, caf::exit_reason::kill);
   });
@@ -35,14 +35,16 @@ TEST_F(echo_test, gate_echo) {
   uint16_t port = 0;
   {
     std::vector<uint8_t> key;
-    caf::scoped_actor self;
+    caf::scoped_actor self(*m_sys);
     self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, false);
-    self->sync_send(gate, caf::publish_atom::value, port).await(
-      [&port] (caf::ok_atom, uint16_t gate_port) {
+    self->request(gate, caf::publish_atom::value, port).await(
+      [&port] (uint16_t gate_port) {
         port = gate_port;
       },
-      [] (caf::error_atom, const std::string& what) {
-        std::cout << "ERROR: " << what << std::endl;
+      //[] (caf::error_atom, const std::string& what) {
+      //  std::cout << "ERROR: " << what << std::endl;
+      //}
+      [] (const caf::error& e) {
       }
     );
   }
@@ -66,7 +68,7 @@ TEST_F(echo_test, gate_echo) {
 }
 
 TEST_F(echo_test, gate_chain_echo) {
-  auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300, std::string());
+  auto gate = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
   scope_guard guard_gate([gate] {
     caf::anon_send_exit(gate, caf::exit_reason::kill);
   });
@@ -74,34 +76,38 @@ TEST_F(echo_test, gate_chain_echo) {
   uint16_t port = 0;
   {
     std::vector<uint8_t> key;
-    caf::scoped_actor self;
+    caf::scoped_actor self(*m_sys);
     self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, false);
-    self->sync_send(gate, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
-      [&port] (caf::ok_atom, uint16_t gate_port) {
+    self->request(gate, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
+      [&port] (uint16_t gate_port) {
         port = gate_port;
       },
-      [] (caf::error_atom, const std::string& what) {
-        std::cout << "ERROR: " << what << std::endl;
+      //[] (caf::error_atom, const std::string& what) {
+      //  std::cout << "ERROR: " << what << std::endl;
+      //}
+      [] (const caf::error& e) {
       }
     );
   }
   ASSERT_NE(0, port);
 
-  auto gate2 = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300, std::string());
+  auto gate2 = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
   scope_guard guard_gate2([gate2] {
     caf::anon_send_exit(gate2, caf::exit_reason::kill);
   });
 
   {
     std::vector<uint8_t> key;
-    caf::scoped_actor self;
+    caf::scoped_actor self(*m_sys);
     self->send(gate2, caf::add_atom::value, "127.0.0.1", port, key, false);
-    self->sync_send(gate2, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
-      [&port] (caf::ok_atom, uint16_t gate_port) {
+    self->request(gate2, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
+      [&port] (uint16_t gate_port) {
         port = gate_port;
       },
-      [] (caf::error_atom, const std::string& what) {
-        std::cout << "ERROR: " << what << std::endl;
+      //[] (caf::error_atom, const std::string& what) {
+      //  std::cout << "ERROR: " << what << std::endl;
+      //}
+      [] (const caf::error& e) {
       }
     );
   }
@@ -125,7 +131,7 @@ TEST_F(echo_test, gate_chain_echo) {
 }
 
 TEST_F(ranger_proxy_test, gate_null) {
-  auto gate = caf::io::spawn_io(ranger::proxy::gate_service_impl, 300, std::string());
+  auto gate = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
   scope_guard guard_gate([gate] {
     caf::anon_send_exit(gate, caf::exit_reason::kill);
   });
@@ -133,14 +139,16 @@ TEST_F(ranger_proxy_test, gate_null) {
   uint16_t port = 0;
   {
     std::vector<uint8_t> key;
-    caf::scoped_actor self;
+    caf::scoped_actor self(*m_sys);
     self->send(gate, caf::add_atom::value, "127.0.0.1", static_cast<uint16_t>(0x7FFF), key, false);
-    self->sync_send(gate, caf::publish_atom::value, port).await(
-      [&port] (caf::ok_atom, uint16_t gate_port) {
+    self->request(gate, caf::publish_atom::value, port).await(
+      [&port] (uint16_t gate_port) {
         port = gate_port;
       },
-      [] (caf::error_atom, const std::string& what) {
-        std::cout << "ERROR: " << what << std::endl;
+      //[] (caf::error_atom, const std::string& what) {
+      //  std::cout << "ERROR: " << what << std::endl;
+      //}
+      [] (const caf::error& e) {
       }
     );
   }
@@ -158,5 +166,5 @@ TEST_F(ranger_proxy_test, gate_null) {
     ASSERT_EQ(0, connect(fd, reinterpret_cast<sockaddr*>(&sin), sizeof(sin)));
   }
 
-  caf::detail::singletons::get_actor_registry()->await_running_count_equal(1);
+  m_sys->registry().await_running_count_equal(1);
 }

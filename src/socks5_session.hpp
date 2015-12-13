@@ -29,8 +29,8 @@ namespace ranger { namespace proxy {
 
 using socks5_session =
   minimal_client::extend<
-    reacts_to<ok_atom, connection_handle>,
-    reacts_to<error_atom, std::string>,
+    reacts_to<connection_handle>,
+    reacts_to<error>,
     reacts_to<encrypt_atom, std::vector<char>>,
     reacts_to<decrypt_atom, std::vector<char>>,
     reacts_to<auth_atom, bool>

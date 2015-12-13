@@ -29,12 +29,12 @@ using namespace ranger;
 using namespace ranger::proxy;
 using namespace ranger::proxy::experimental;
 
-int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
+int bootstrap_with_config_impl(actor_system& sys, rapidxml::xml_node<>* root, bool verbose) {
   auto next = root->next_sibling("ranger_proxy");
   if (next) {
     auto pid = fork();
     if (pid == 0) {
-      return bootstrap_with_config_impl(next, verbose);
+      return bootstrap_with_config_impl(sys, next, verbose);
     } else if (pid < 0) {
       std::cerr << "ERROR: Failed in calling fork()" << std::endl;
       return 1;
@@ -53,40 +53,40 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
     log = node->value();
   }
 
-  std::string policy = "work_stealing";
-  node = root->first_node("policy");
-  if (node) {
-    policy = node->value();
-  }
+  //std::string policy = "work_stealing";
+  //node = root->first_node("policy");
+  //if (node) {
+  //  policy = node->value();
+  //}
 
-  size_t worker = std::thread::hardware_concurrency();
-  node = root->first_node("worker");
-  if (node) {
-    worker = atoi(node->value());
-  }
+  //size_t worker = std::thread::hardware_concurrency();
+  //node = root->first_node("worker");
+  //if (node) {
+  //  worker = atoi(node->value());
+  //}
 
-  size_t throughput = std::numeric_limits<size_t>::max();
-  node = root->first_node("throughput");
-  if (node) {
-    throughput = atoi(node->value());
-  }
+  //size_t throughput = std::numeric_limits<size_t>::max();
+  //node = root->first_node("throughput");
+  //if (node) {
+  //  throughput = atoi(node->value());
+  //}
 
-  if (policy == "work_stealing") {
-    set_scheduler<policy::work_stealing>(worker, throughput);
-  } else if (policy == "work_sharing") {
-    set_scheduler<policy::work_sharing>(worker, throughput);
-  } else {
-    std::cerr << "ERROR: Unsupported scheduler policy" << std::endl;
-    return 1;
-  }
+  //if (policy == "work_stealing") {
+  //  set_scheduler<policy::work_stealing>(worker, throughput);
+  //} else if (policy == "work_sharing") {
+  //  set_scheduler<policy::work_sharing>(worker, throughput);
+  //} else {
+  //  std::cerr << "ERROR: Unsupported scheduler policy" << std::endl;
+  //  return 1;
+  //}
 
-  set_middleman<network::asio_multiplexer>();
+  //set_middleman<network::asio_multiplexer>();
 
   int ret = 0;
   node = root->first_node("gate");
   if (node && atoi(node->value())) {
-    auto serv = spawn_io(gate_service_impl, timeout, log);
-    scoped_actor self;
+    auto serv = sys.middleman().spawn_broker(gate_service_impl, timeout, log);
+    scoped_actor self(sys);
     for (auto i = root->first_node("remote_host"); i; i = i->next_sibling("remote_host")) {
       std::string addr;
       node = i->first_node("address");
@@ -117,11 +117,11 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
       self->send(serv, add_atom::value, addr, port, key, zlib);
     }
 
-    auto ok_hdl = [] (ok_atom, uint16_t) {
+    auto ok_hdl = [] (uint16_t) {
       std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
     };
-    auto err_hdl = [&ret] (error_atom, const std::string& what) {
-      std::cerr << "ERROR: " << what << std::endl;
+    auto err_hdl = [&ret] (error& e) {
+      //std::cerr << "ERROR: " << what << std::endl;
       ret = 1;
     };
     for (auto i = root->first_node("local_host"); i; i = i->next_sibling("local_host")) {
@@ -138,9 +138,9 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
       }
 
       if (addr.empty()) {
-        self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
+        self->request(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
       } else {
-        self->sync_send(serv, publish_atom::value, addr, port).await(ok_hdl, err_hdl);
+        self->request(serv, publish_atom::value, addr, port).await(ok_hdl, err_hdl);
       }
 
       if (ret) {
@@ -149,8 +149,8 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
       }
     }
   } else {
-    auto serv = spawn_io(socks5_service_impl, timeout, verbose, log);
-    scoped_actor self;
+    auto serv = sys.middleman().spawn_broker(socks5_service_impl, timeout, verbose, log);
+    scoped_actor self(sys);
     for (auto i = root->first_node("user"); i; i = i->next_sibling("user")) {
       node = i->first_node("username");
       if (node) {
@@ -161,7 +161,7 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
           password = node->value();
         }
 
-        self->sync_send(serv, add_atom::value, username, password).await(
+        self->request(serv, add_atom::value, username, password).await(
           [] (bool result, const std::string& username) {
             if (result) {
               std::cout << "INFO: Add user[" << username << "] successfully" << std::endl;
@@ -173,11 +173,11 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
       }
     }
 
-    auto ok_hdl = [] (ok_atom, uint16_t) {
+    auto ok_hdl = [] (uint16_t) {
       std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
     };
-    auto err_hdl = [&ret] (error_atom, const std::string& what) {
-      std::cerr << "ERROR: " << what << std::endl;
+    auto err_hdl = [&ret] (error& e) {
+      //std::cerr << "ERROR: " << what << std::endl;
       ret = 1;
     };
     for (auto i = root->first_node("local_host"); i; i = i->next_sibling("local_host")) {
@@ -208,10 +208,10 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
       }
 
       if (addr.empty()) {
-        self->sync_send(serv, publish_atom::value, port,
+        self->request(serv, publish_atom::value, port,
                         key, zlib).await(ok_hdl, err_hdl);
       } else {
-        self->sync_send(serv, publish_atom::value, addr, port,
+        self->request(serv, publish_atom::value, addr, port,
                         key, zlib).await(ok_hdl, err_hdl);
       }
 
@@ -224,14 +224,14 @@ int bootstrap_with_config_impl(rapidxml::xml_node<>* root, bool verbose) {
   return ret;
 }
 
-int bootstrap_with_config(const std::string& config, bool verbose) {
+int bootstrap_with_config(actor_system& sys, const std::string& config, bool verbose) {
   try {
     rapidxml::file<> fin(config.c_str());
     rapidxml::xml_document<> doc;
     doc.parse<0>(fin.data());
     auto root = doc.first_node("ranger_proxy");
     if (root) {
-      return bootstrap_with_config_impl(root, verbose);
+      return bootstrap_with_config_impl(sys, root, verbose);
     }
     return 0;
   } catch (const rapidxml::parse_error& e) {
@@ -243,7 +243,7 @@ int bootstrap_with_config(const std::string& config, bool verbose) {
   }
 }
 
-int bootstrap(int argc, char* argv[]) {
+int bootstrap(actor_system& sys, int argc, char* argv[]) {
   std::string host;
   uint16_t port = 1080;
   std::string username;
@@ -251,9 +251,9 @@ int bootstrap(int argc, char* argv[]) {
   std::string key_src;
   int timeout = 300;
   std::string log;
-  std::string policy = "work_stealing";
-  size_t worker = std::thread::hardware_concurrency();
-  size_t throughput = std::numeric_limits<size_t>::max();
+  //std::string policy = "work_stealing";
+  //size_t worker = std::thread::hardware_concurrency();
+  //size_t throughput = std::numeric_limits<size_t>::max();
   std::string remote_host;
   uint16_t remote_port = 0;
   std::string config;
@@ -267,9 +267,9 @@ int bootstrap(int argc, char* argv[]) {
     {"zlib,z", "enable zlib compression (default: disable)"},
     {"timeout,t", "set timeout (default: 300)", timeout},
     {"log", "set log file path (default: empty)", log},
-    {"policy", "set scheduler policy (default: work_stealing)", policy},
-    {"worker", "set number of workers (default: hardware_concurrency)", worker},
-    {"throughput", "set max throughput of actor (default: unlimited)", throughput},
+    //{"policy", "set scheduler policy (default: work_stealing)", policy},
+    //{"worker", "set number of workers (default: hardware_concurrency)", worker},
+    //{"throughput", "set max throughput of actor (default: unlimited)", throughput},
     {"gate,G", "run in gate mode"},
     {"remote_host", "set remote host (only used in gate mode)", remote_host},
     {"remote_port", "set remote port (only used in gate mode)", remote_port},
@@ -299,36 +299,36 @@ int bootstrap(int argc, char* argv[]) {
   }
 
   if (res.opts.count("config") > 0) {
-    return bootstrap_with_config(config, res.opts.count("verbose") > 0);
+    return bootstrap_with_config(sys, config, res.opts.count("verbose") > 0);
   } else if (res.opts.count("gate") > 0) {
-    if (policy == "work_stealing") {
-      set_scheduler<policy::work_stealing>(worker, throughput);
-    } else if (policy == "work_sharing") {
-      set_scheduler<policy::work_sharing>(worker, throughput);
-    } else {
-      std::cerr << "ERROR: Unsupported scheduler policy" << std::endl;
-      return 1;
-    }
+    //if (policy == "work_stealing") {
+    //  set_scheduler<policy::work_stealing>(worker, throughput);
+    //} else if (policy == "work_sharing") {
+    //  set_scheduler<policy::work_sharing>(worker, throughput);
+    //} else {
+    //  std::cerr << "ERROR: Unsupported scheduler policy" << std::endl;
+    //  return 1;
+    //}
     
-    set_middleman<network::asio_multiplexer>();
+    //set_middleman<network::asio_multiplexer>();
 
     int ret = 0;
-    scoped_actor self;
-    auto serv = spawn_io(gate_service_impl, timeout, log);
+    scoped_actor self(sys);
+    auto serv = sys.middleman().spawn_broker(gate_service_impl, timeout, log);
     std::vector<uint8_t> key(key_src.begin(), key_src.end());
     self->send(serv, add_atom::value, remote_host, remote_port,
                key, res.opts.count("zlib") > 0);
-    auto ok_hdl = [] (ok_atom, uint16_t) {
+    auto ok_hdl = [] (uint16_t) {
       std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
     };
-    auto err_hdl = [&ret] (error_atom, const std::string& what) {
-      std::cerr << "ERROR: " << what << std::endl;
+    auto err_hdl = [&ret] (error& e) {
+      //std::cerr << "ERROR: " << what << std::endl;
       ret = 1;
     };
     if (host.empty()) {
-      self->sync_send(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
+      self->request(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
     } else {
-      self->sync_send(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
+      self->request(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
     }
 
     if (ret) {
@@ -337,22 +337,22 @@ int bootstrap(int argc, char* argv[]) {
 
     return ret;
   } else {
-    if (policy == "work_stealing") {
-      set_scheduler<policy::work_stealing>(worker, throughput);
-    } else if (policy == "work_sharing") {
-      set_scheduler<policy::work_sharing>(worker, throughput);
-    } else {
-      std::cerr << "ERROR: Unsupported scheduler policy" << std::endl;
-      return 1;
-    }
+    //if (policy == "work_stealing") {
+    //  set_scheduler<policy::work_stealing>(worker, throughput);
+    //} else if (policy == "work_sharing") {
+    //  set_scheduler<policy::work_sharing>(worker, throughput);
+    //} else {
+    //  std::cerr << "ERROR: Unsupported scheduler policy" << std::endl;
+    //  return 1;
+    //}
 
-    set_middleman<network::asio_multiplexer>();
+    //set_middleman<network::asio_multiplexer>();
 
     int ret = 0;
-    auto serv = spawn_io(socks5_service_impl, timeout, res.opts.count("verbose") > 0, log);
-    scoped_actor self;
+    auto serv = sys.middleman().spawn_broker(socks5_service_impl, timeout, res.opts.count("verbose") > 0, log);
+    scoped_actor self(sys);
     if (!username.empty()) {
-      self->sync_send(serv, add_atom::value, username, password).await(
+      self->request(serv, add_atom::value, username, password).await(
         [] (bool result, const std::string& username) {
           if (result) {
             std::cout << "INFO: Add user[" << username << "] successfully" << std::endl;
@@ -363,18 +363,18 @@ int bootstrap(int argc, char* argv[]) {
       );
     }
     std::vector<uint8_t> key(key_src.begin(), key_src.end());
-    auto ok_hdl = [] (ok_atom, uint16_t) {
+    auto ok_hdl = [] (uint16_t) {
       std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
     };
-    auto err_hdl = [&ret] (error_atom, const std::string& what) {
-      std::cerr << "ERROR: " << what << std::endl;
+    auto err_hdl = [&ret] (error& e) {
+      //std::cerr << "ERROR: " << what << std::endl;
       ret = 1;
     };
     if (host.empty()) {
-      self->sync_send(serv, publish_atom::value, port,
+      self->request(serv, publish_atom::value, port,
                       key, res.opts.count("zlib") > 0).await(ok_hdl, err_hdl);
     } else {
-      self->sync_send(serv, publish_atom::value, host, port,
+      self->request(serv, publish_atom::value, host, port,
                       key, res.opts.count("zlib") > 0).await(ok_hdl, err_hdl);
     }
 
@@ -387,14 +387,17 @@ int bootstrap(int argc, char* argv[]) {
 }
 
 int main(int argc, char* argv[]) {
+  actor_system_config sys_cfg(argc, argv);
+  sys_cfg.middleman_network_backend = atom("asio");
+  sys_cfg.load<middleman>();
+  actor_system sys(sys_cfg);
   int ret = 0;
   try {
-    ret = bootstrap(argc, argv);
+    ret = bootstrap(sys, argc, argv);
   } catch (const std::invalid_argument& e) {
     std::cerr << "ERROR: " << e.what() << std::endl;
     ret = 1;
   }
-  await_all_actors_done();
-  shutdown();
+  sys.await_all_actors_done();
   return ret;
 }

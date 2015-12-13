@@ -27,7 +27,7 @@ public:
 
   static void redirect(logger lgr);
 
-  explicit logger_ostream(actor self);
+  explicit logger_ostream(abstract_actor* self);
 
   logger_ostream& write(const std::string& content);
   logger_ostream& flush();
@@ -46,7 +46,7 @@ public:
 
 private:
   static logger m_logger;
-  actor m_self;
+  intrusive_ptr<abstract_actor> m_self;
   std::string m_content;
 };
 

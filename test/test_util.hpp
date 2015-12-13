@@ -20,16 +20,16 @@
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 #include <caf/io/network/asio_multiplexer_impl.hpp>
+#include <caf/io/experimental/typed_broker.hpp>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <string>
+#include <memory>
 #include "scope_guard.hpp"
 
 using echo_service =
   caf::io::experimental::minimal_server::extend<
-    caf::replies_to<caf::publish_atom>
-    ::with_either<caf::ok_atom, uint16_t>
-    ::or_else<caf::error_atom, std::string>
+    caf::replies_to<caf::publish_atom>::with<uint16_t>
   >;
 
 echo_service::behavior_type
@@ -45,12 +45,12 @@ echo_service_impl(echo_service::broker_pointer self) {
     },
     [] (const caf::io::connection_closed_msg&) {},
     [] (const caf::io::acceptor_closed_msg&) {},
-    [=] (caf::publish_atom)
-      -> caf::either<caf::ok_atom, uint16_t>::or_else<caf::error_atom, std::string> {
+    [=] (caf::publish_atom) -> caf::maybe<uint16_t> {
       try {
-        return {caf::ok_atom::value, self->add_tcp_doorman().second};
+        return self->add_tcp_doorman().second;
       } catch (const caf::network_error& e) {
-        return {caf::error_atom::value, e.what()};
+        //return {caf::error_atom::value, e.what()};
+        return caf::error();
       }
     }
   };
@@ -58,31 +58,34 @@ echo_service_impl(echo_service::broker_pointer self) {
 
 class ranger_proxy_test : public testing::Test {
 public:
-  static void SetUpTestCase() {
-    caf::io::set_middleman<caf::io::network::asio_multiplexer>();
-  }
-
-  static void TearDownTestCase() {
-    caf::shutdown();
+  ranger_proxy_test() {
+    caf::actor_system_config sys_cfg;
+    sys_cfg.middleman_network_backend = caf::atom("asio");
+    sys_cfg.load<caf::io::middleman>();
+    m_sys.reset(new caf::actor_system(sys_cfg));
   }
 
 protected:
   void TearDown() override {
-    caf::await_all_actors_done();
+    m_sys->await_all_actors_done();
   }
+
+  std::unique_ptr<caf::actor_system> m_sys;
 };
 
 class echo_test : public ranger_proxy_test {
 protected:
   void SetUp() final {
-    m_echo = caf::io::spawn_io(echo_service_impl);
-    caf::scoped_actor self;
-    self->sync_send(m_echo, caf::publish_atom::value).await(
-      [this] (caf::ok_atom, uint16_t port) {
+    m_echo = m_sys->middleman().spawn_broker(echo_service_impl);
+    caf::scoped_actor self(*m_sys);
+    self->request(m_echo, caf::publish_atom::value).await(
+      [this] (uint16_t port) {
         m_port = port;
       },
-      [] (caf::error_atom, const std::string& what) {
-        std::cout << "ERROR: " << what << std::endl;
+      //[] (caf::error_atom, const std::string& what) {
+      //  std::cout << "ERROR: " << what << std::endl;
+      //}
+      [] (const caf::error& e) {
       }
     );
     ASSERT_NE(0, m_port);

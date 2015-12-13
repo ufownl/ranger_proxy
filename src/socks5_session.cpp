@@ -21,6 +21,7 @@
 #include "async_connect.hpp"
 #include <arpa/inet.h>
 #include <chrono>
+#include <random>
 #include <string.h>
 
 namespace ranger { namespace proxy {
@@ -494,11 +495,14 @@ socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
     [self] (const connection_closed_msg& msg) {
       self->state.handle_conn_closed(msg);
     },
-    [self] (ok_atom, connection_handle hdl) {
+    [self] (connection_handle hdl) {
       self->state.handle_connect_succ(hdl);
     },
-    [self] (error_atom, const std::string& what) {
-      self->state.handle_connect_fail(what);
+    //[self] (error_atom, const std::string& what) {
+    //  self->state.handle_connect_fail(what);
+    //},
+    [self] (const error& e) {
+      self->state.handle_connect_fail("");
     },
     [self] (encrypt_atom, const std::vector<char>& buf) {
       self->state.handle_encrypted_data(buf);
@@ -518,6 +522,8 @@ socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
         break;
       case exit_reason::user_shutdown:
         self->state.handle_user_shutdown(msg.source);
+        break;
+      default:
         break;
       }
 
