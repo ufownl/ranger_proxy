@@ -45,7 +45,7 @@ void handle_connect_completed(T* self,
     if (!self->exited()) {
       auto& backend = static_cast<network::asio_multiplexer&>(self->parent().backend());
       auto hdl = backend.add_tcp_scribe(self, std::move(fd));
-      self->send(self, ok_atom::value, hdl);
+      self->send(self, hdl);
     } else {
       boost::system::error_code ignored_ec;
       using boost::asio::ip::tcp;
