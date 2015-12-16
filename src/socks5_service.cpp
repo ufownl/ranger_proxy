@@ -18,6 +18,7 @@
 #include "socks5_service.hpp"
 #include "socks5_session.hpp"
 #include "logger_ostream.hpp"
+#include "err.hpp"
 #include <random>
 
 namespace ranger { namespace proxy {
@@ -89,9 +90,10 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
         auto doorman = self->add_tcp_doorman(port, nullptr, true);
         self->state.add_doorman_info(doorman.first, key, zlib);
         return doorman.second;
+      } catch (const network_error& e) {
+        return make_error(err::network_error, e.what());
       } catch (const std::exception& e) {
-        //return {error_atom::value, e.what()};
-        return error();
+        return make_error(err::unknown, e.what());
       }
     },
     [self] (publish_atom, const std::string& host, uint16_t port,
@@ -100,9 +102,10 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
         auto doorman = self->add_tcp_doorman(port, host.c_str(), true);
         self->state.add_doorman_info(doorman.first, key, zlib);
         return doorman.second;
+      } catch (const network_error& e) {
+        return make_error(err::network_error, e.what());
       } catch (const std::exception& e) {
-        //return {error_atom::value, e.what()};
-        return error();
+        return make_error(err::unknown, e.what());
       }
     },
     [self] (add_atom, const std::string& username, const std::string& password) {

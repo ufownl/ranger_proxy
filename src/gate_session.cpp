@@ -164,11 +164,8 @@ gate_session_impl(gate_session::stateful_broker_pointer<gate_state> self,
     [self] (connection_handle hdl) {
       self->state.handle_connect_succ(hdl);
     },
-    //[self] (error_atom, const std::string& what) {
-    //  self->state.handle_connect_fail(what);
-    //},
     [self] (const error& e) {
-      self->state.handle_connect_fail("");
+      self->state.handle_connect_fail(e.context());
     },
     [self] (encrypt_atom, const std::vector<char>& buf) {
       self->state.handle_encrypted_data(buf);

@@ -18,6 +18,7 @@
 #include "gate_service.hpp"
 #include "gate_session.hpp"
 #include "logger_ostream.hpp"
+#include "err.hpp"
 
 namespace ranger { namespace proxy {
 
@@ -72,16 +73,14 @@ gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self
       try {
         return self->add_tcp_doorman(port, nullptr, true).second;
       } catch (const network_error& e) {
-        //return {error_atom::value, e.what()};
-        return error();
+        return make_error(err::network_error, e.what());
       }
     },
     [self] (publish_atom, const std::string& host, uint16_t port) -> maybe<uint16_t> {
       try {
         return self->add_tcp_doorman(port, host.c_str(), true).second;
       } catch (const network_error& e) {
-        //return {error_atom::value, e.what()};
-        return error();
+        return make_error(err::network_error, e.what());
       }
     },
     [self] (add_atom, const std::string& addr, uint16_t port,

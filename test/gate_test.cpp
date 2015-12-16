@@ -22,6 +22,7 @@
 #include "zlib_encryptor.cpp"
 #include "logger_ostream.cpp"
 #include "logger.cpp"
+#include "err.cpp"
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -41,10 +42,8 @@ TEST_F(echo_test, gate_echo) {
       [&port] (uint16_t gate_port) {
         port = gate_port;
       },
-      //[] (caf::error_atom, const std::string& what) {
-      //  std::cout << "ERROR: " << what << std::endl;
-      //}
       [] (const caf::error& e) {
+        std::cout << "ERROR: " << e.context() << std::endl;
       }
     );
   }
@@ -82,10 +81,8 @@ TEST_F(echo_test, gate_chain_echo) {
       [&port] (uint16_t gate_port) {
         port = gate_port;
       },
-      //[] (caf::error_atom, const std::string& what) {
-      //  std::cout << "ERROR: " << what << std::endl;
-      //}
       [] (const caf::error& e) {
+        std::cout << "ERROR: " << e.context() << std::endl;
       }
     );
   }
@@ -104,10 +101,8 @@ TEST_F(echo_test, gate_chain_echo) {
       [&port] (uint16_t gate_port) {
         port = gate_port;
       },
-      //[] (caf::error_atom, const std::string& what) {
-      //  std::cout << "ERROR: " << what << std::endl;
-      //}
       [] (const caf::error& e) {
+        std::cout << "ERROR: " << e.context() << std::endl;
       }
     );
   }
@@ -145,10 +140,8 @@ TEST_F(ranger_proxy_test, gate_null) {
       [&port] (uint16_t gate_port) {
         port = gate_port;
       },
-      //[] (caf::error_atom, const std::string& what) {
-      //  std::cout << "ERROR: " << what << std::endl;
-      //}
       [] (const caf::error& e) {
+        std::cout << "ERROR: " << e.context() << std::endl;
       }
     );
   }

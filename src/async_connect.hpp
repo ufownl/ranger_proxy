@@ -18,6 +18,7 @@
 #define RANGER_PROXY_ASYNC_CONNECT_HPP
 
 #include "logger_ostream.hpp"
+#include "err.hpp"
 #include <caf/io/network/asio_multiplexer.hpp>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -35,8 +36,7 @@ void handle_connect_completed(T* self,
   if (ec) {
     if (!self->exited()) {
       log(self) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
-      //self->send(self, error_atom::value, "could not connect to host: " + ep_info);
-      self->send(self, error());
+      self->send(self, make_error(err::network_error, "could not connect to host: " + ep_info));
     } else {
       scoped_actor tmp(self->system());
       log(tmp) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
@@ -81,8 +81,7 @@ void async_connect(intrusive_ptr<T> self, const std::string& host, uint16_t port
       if (ec) {
         if (!self->exited()) {
           log(self.get()) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
-          //self->send(self, error_atom::value, "could not resolve host: " + ep_info);
-          self->send(self, error());
+          self->send(self, make_error(err::network_error, "could not resolve host: " + ep_info));
         } else {
           scoped_actor tmp(self->system());
           log(tmp) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
