@@ -17,6 +17,7 @@
 #include "common.hpp"
 #include "socks5_service.hpp"
 #include "gate_service.hpp"
+#include "scope_guard.hpp"
 #include <caf/io/network/asio_multiplexer_impl.hpp>
 #include <caf/policy/work_sharing.hpp>
 #include <rapidxml.hpp>
@@ -29,12 +30,12 @@ using namespace ranger;
 using namespace ranger::proxy;
 using namespace ranger::proxy::experimental;
 
-int bootstrap_with_config_impl(actor_system& sys, rapidxml::xml_node<>* root, bool verbose) {
+int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<>* root, bool verbose) {
   auto next = root->next_sibling("ranger_proxy");
   if (next) {
     auto pid = fork();
     if (pid == 0) {
-      return bootstrap_with_config_impl(sys, next, verbose);
+      return bootstrap_with_config_impl(sys_cfg, next, verbose);
     } else if (pid < 0) {
       std::cerr << "ERROR: Failed in calling fork()" << std::endl;
       return 1;
@@ -52,6 +53,9 @@ int bootstrap_with_config_impl(actor_system& sys, rapidxml::xml_node<>* root, bo
   if (node) {
     log = node->value();
   }
+
+  actor_system sys(sys_cfg);
+  scope_guard sys_guard([&sys] { sys.await_all_actors_done(); });
 
   int ret = 0;
   node = root->first_node("gate");
@@ -180,10 +184,10 @@ int bootstrap_with_config_impl(actor_system& sys, rapidxml::xml_node<>* root, bo
 
       if (addr.empty()) {
         self->request(serv, publish_atom::value, port,
-                        key, zlib).await(ok_hdl, err_hdl);
+                      key, zlib).await(ok_hdl, err_hdl);
       } else {
         self->request(serv, publish_atom::value, addr, port,
-                        key, zlib).await(ok_hdl, err_hdl);
+                      key, zlib).await(ok_hdl, err_hdl);
       }
 
       if (ret) {
@@ -195,14 +199,14 @@ int bootstrap_with_config_impl(actor_system& sys, rapidxml::xml_node<>* root, bo
   return ret;
 }
 
-int bootstrap_with_config(actor_system& sys, const std::string& config, bool verbose) {
+int bootstrap_with_config(actor_system_config& sys_cfg, const std::string& config, bool verbose) {
   try {
     rapidxml::file<> fin(config.c_str());
     rapidxml::xml_document<> doc;
     doc.parse<0>(fin.data());
     auto root = doc.first_node("ranger_proxy");
     if (root) {
-      return bootstrap_with_config_impl(sys, root, verbose);
+      return bootstrap_with_config_impl(sys_cfg, root, verbose);
     }
     return 0;
   } catch (const rapidxml::parse_error& e) {
@@ -214,7 +218,11 @@ int bootstrap_with_config(actor_system& sys, const std::string& config, bool ver
   }
 }
 
-int bootstrap(actor_system& sys, int argc, char* argv[]) {
+int bootstrap(int argc, char* argv[]) {
+  actor_system_config sys_cfg(argc, argv);
+  sys_cfg.middleman_network_backend = atom("asio");
+  sys_cfg.load<middleman>();
+
   std::string host;
   uint16_t port = 1080;
   std::string username;
@@ -259,83 +267,83 @@ int bootstrap(actor_system& sys, int argc, char* argv[]) {
   }
 
   if (res.opts.count("config") > 0) {
-    return bootstrap_with_config(sys, config, res.opts.count("verbose") > 0);
-  } else if (res.opts.count("gate") > 0) {
-    int ret = 0;
-    scoped_actor self(sys);
-    auto serv = sys.middleman().spawn_broker(gate_service_impl, timeout, log);
-    std::vector<uint8_t> key(key_src.begin(), key_src.end());
-    self->send(serv, add_atom::value, remote_host, remote_port,
-               key, res.opts.count("zlib") > 0);
-    auto ok_hdl = [] (uint16_t) {
-      std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
-    };
-    auto err_hdl = [&ret] (error& e) {
-      std::cerr << "ERROR: " << e.context() << std::endl;
-      ret = 1;
-    };
-    if (host.empty()) {
-      self->request(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
-    } else {
-      self->request(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
-    }
-
-    if (ret) {
-      anon_send_exit(serv, exit_reason::kill);
-    }
-
-    return ret;
+    return bootstrap_with_config(sys_cfg, config, res.opts.count("verbose") > 0);
   } else {
-    int ret = 0;
-    auto serv = sys.middleman().spawn_broker(socks5_service_impl, timeout, res.opts.count("verbose") > 0, log);
-    scoped_actor self(sys);
-    if (!username.empty()) {
-      self->request(serv, add_atom::value, username, password).await(
-        [] (bool result, const std::string& username) {
-          if (result) {
-            std::cout << "INFO: Add user[" << username << "] successfully" << std::endl;
-          } else {
-            std::cerr << "ERROR: Fail in adding user[" << username << "]" << std::endl;
-          }
-        }
-      );
-    }
-    std::vector<uint8_t> key(key_src.begin(), key_src.end());
-    auto ok_hdl = [] (uint16_t) {
-      std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
-    };
-    auto err_hdl = [&ret] (error& e) {
-      std::cerr << "ERROR: " << e.context() << std::endl;
-      ret = 1;
-    };
-    if (host.empty()) {
-      self->request(serv, publish_atom::value, port,
-                      key, res.opts.count("zlib") > 0).await(ok_hdl, err_hdl);
+    actor_system sys(sys_cfg);
+    scope_guard sys_guard([&sys] { sys.await_all_actors_done(); });
+
+    if (res.opts.count("gate") > 0) {
+      int ret = 0;
+      scoped_actor self(sys);
+      auto serv = sys.middleman().spawn_broker(gate_service_impl, timeout, log);
+      std::vector<uint8_t> key(key_src.begin(), key_src.end());
+      self->send(serv, add_atom::value, remote_host, remote_port,
+                 key, res.opts.count("zlib") > 0);
+      auto ok_hdl = [] (uint16_t) {
+        std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
+      };
+      auto err_hdl = [&ret] (error& e) {
+        std::cerr << "ERROR: " << e.context() << std::endl;
+        ret = 1;
+      };
+      if (host.empty()) {
+        self->request(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
+      } else {
+        self->request(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
+      }
+
+      if (ret) {
+        anon_send_exit(serv, exit_reason::kill);
+      }
+
+      return ret;
     } else {
-      self->request(serv, publish_atom::value, host, port,
+      int ret = 0;
+      auto serv = sys.middleman().spawn_broker(socks5_service_impl, timeout, res.opts.count("verbose") > 0, log);
+      scoped_actor self(sys);
+      if (!username.empty()) {
+        self->request(serv, add_atom::value, username, password).await(
+          [] (bool result, const std::string& username) {
+            if (result) {
+              std::cout << "INFO: Add user[" << username << "] successfully" << std::endl;
+            } else {
+              std::cerr << "ERROR: Fail in adding user[" << username << "]" << std::endl;
+            }
+          }
+        );
+      }
+      std::vector<uint8_t> key(key_src.begin(), key_src.end());
+      auto ok_hdl = [] (uint16_t) {
+        std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
+      };
+      auto err_hdl = [&ret] (error& e) {
+        std::cerr << "ERROR: " << e.context() << std::endl;
+        ret = 1;
+      };
+      if (host.empty()) {
+        self->request(serv, publish_atom::value, port,
                       key, res.opts.count("zlib") > 0).await(ok_hdl, err_hdl);
-    }
+      } else {
+        self->request(serv, publish_atom::value, host, port,
+                      key, res.opts.count("zlib") > 0).await(ok_hdl, err_hdl);
+      }
 
-    if (ret) {
-      anon_send_exit(serv, exit_reason::kill);
-    }
+      if (ret) {
+        anon_send_exit(serv, exit_reason::kill);
+      }
 
-    return ret;
+      return ret;
+    }
   }
 }
 
 int main(int argc, char* argv[]) {
-  actor_system_config sys_cfg(argc, argv);
-  sys_cfg.middleman_network_backend = atom("asio");
-  sys_cfg.load<middleman>();
-  actor_system sys(sys_cfg);
   int ret = 0;
   try {
-    ret = bootstrap(sys, argc, argv);
+    ret = bootstrap(argc, argv);
   } catch (const std::invalid_argument& e) {
     std::cerr << "ERROR: " << e.what() << std::endl;
     ret = 1;
   }
-  sys.await_all_actors_done();
   return ret;
 }
