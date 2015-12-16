@@ -53,35 +53,6 @@ int bootstrap_with_config_impl(actor_system& sys, rapidxml::xml_node<>* root, bo
     log = node->value();
   }
 
-  //std::string policy = "work_stealing";
-  //node = root->first_node("policy");
-  //if (node) {
-  //  policy = node->value();
-  //}
-
-  //size_t worker = std::thread::hardware_concurrency();
-  //node = root->first_node("worker");
-  //if (node) {
-  //  worker = atoi(node->value());
-  //}
-
-  //size_t throughput = std::numeric_limits<size_t>::max();
-  //node = root->first_node("throughput");
-  //if (node) {
-  //  throughput = atoi(node->value());
-  //}
-
-  //if (policy == "work_stealing") {
-  //  set_scheduler<policy::work_stealing>(worker, throughput);
-  //} else if (policy == "work_sharing") {
-  //  set_scheduler<policy::work_sharing>(worker, throughput);
-  //} else {
-  //  std::cerr << "ERROR: Unsupported scheduler policy" << std::endl;
-  //  return 1;
-  //}
-
-  //set_middleman<network::asio_multiplexer>();
-
   int ret = 0;
   node = root->first_node("gate");
   if (node && atoi(node->value())) {
@@ -121,7 +92,7 @@ int bootstrap_with_config_impl(actor_system& sys, rapidxml::xml_node<>* root, bo
       std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
     };
     auto err_hdl = [&ret] (error& e) {
-      //std::cerr << "ERROR: " << what << std::endl;
+      std::cerr << "ERROR: " << e.context() << std::endl;
       ret = 1;
     };
     for (auto i = root->first_node("local_host"); i; i = i->next_sibling("local_host")) {
@@ -177,7 +148,7 @@ int bootstrap_with_config_impl(actor_system& sys, rapidxml::xml_node<>* root, bo
       std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
     };
     auto err_hdl = [&ret] (error& e) {
-      //std::cerr << "ERROR: " << what << std::endl;
+      std::cerr << "ERROR: " << e.context() << std::endl;
       ret = 1;
     };
     for (auto i = root->first_node("local_host"); i; i = i->next_sibling("local_host")) {
@@ -251,9 +222,6 @@ int bootstrap(actor_system& sys, int argc, char* argv[]) {
   std::string key_src;
   int timeout = 300;
   std::string log;
-  //std::string policy = "work_stealing";
-  //size_t worker = std::thread::hardware_concurrency();
-  //size_t throughput = std::numeric_limits<size_t>::max();
   std::string remote_host;
   uint16_t remote_port = 0;
   std::string config;
@@ -267,9 +235,6 @@ int bootstrap(actor_system& sys, int argc, char* argv[]) {
     {"zlib,z", "enable zlib compression (default: disable)"},
     {"timeout,t", "set timeout (default: 300)", timeout},
     {"log", "set log file path (default: empty)", log},
-    //{"policy", "set scheduler policy (default: work_stealing)", policy},
-    //{"worker", "set number of workers (default: hardware_concurrency)", worker},
-    //{"throughput", "set max throughput of actor (default: unlimited)", throughput},
     {"gate,G", "run in gate mode"},
     {"remote_host", "set remote host (only used in gate mode)", remote_host},
     {"remote_port", "set remote port (only used in gate mode)", remote_port},
@@ -277,11 +242,6 @@ int bootstrap(actor_system& sys, int argc, char* argv[]) {
     {"verbose,v", "enable verbose output (default: disable)"},
     {"daemon,d", "run as daemon"}
   });
-
-  if (!res.error.empty()) {
-    std::cout << res.error << std::endl;
-    return 1;
-  }
 
   if (res.opts.count("help") > 0) {
     std::cout << res.helptext << std::endl;
@@ -301,17 +261,6 @@ int bootstrap(actor_system& sys, int argc, char* argv[]) {
   if (res.opts.count("config") > 0) {
     return bootstrap_with_config(sys, config, res.opts.count("verbose") > 0);
   } else if (res.opts.count("gate") > 0) {
-    //if (policy == "work_stealing") {
-    //  set_scheduler<policy::work_stealing>(worker, throughput);
-    //} else if (policy == "work_sharing") {
-    //  set_scheduler<policy::work_sharing>(worker, throughput);
-    //} else {
-    //  std::cerr << "ERROR: Unsupported scheduler policy" << std::endl;
-    //  return 1;
-    //}
-    
-    //set_middleman<network::asio_multiplexer>();
-
     int ret = 0;
     scoped_actor self(sys);
     auto serv = sys.middleman().spawn_broker(gate_service_impl, timeout, log);
@@ -322,7 +271,7 @@ int bootstrap(actor_system& sys, int argc, char* argv[]) {
       std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
     };
     auto err_hdl = [&ret] (error& e) {
-      //std::cerr << "ERROR: " << what << std::endl;
+      std::cerr << "ERROR: " << e.context() << std::endl;
       ret = 1;
     };
     if (host.empty()) {
@@ -337,17 +286,6 @@ int bootstrap(actor_system& sys, int argc, char* argv[]) {
 
     return ret;
   } else {
-    //if (policy == "work_stealing") {
-    //  set_scheduler<policy::work_stealing>(worker, throughput);
-    //} else if (policy == "work_sharing") {
-    //  set_scheduler<policy::work_sharing>(worker, throughput);
-    //} else {
-    //  std::cerr << "ERROR: Unsupported scheduler policy" << std::endl;
-    //  return 1;
-    //}
-
-    //set_middleman<network::asio_multiplexer>();
-
     int ret = 0;
     auto serv = sys.middleman().spawn_broker(socks5_service_impl, timeout, res.opts.count("verbose") > 0, log);
     scoped_actor self(sys);
@@ -367,7 +305,7 @@ int bootstrap(actor_system& sys, int argc, char* argv[]) {
       std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
     };
     auto err_hdl = [&ret] (error& e) {
-      //std::cerr << "ERROR: " << what << std::endl;
+      std::cerr << "ERROR: " << e.context() << std::endl;
       ret = 1;
     };
     if (host.empty()) {
