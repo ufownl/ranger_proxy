@@ -22,9 +22,6 @@ Allowed options:
   -z [--zlib]         : enable zlib compression (default: disable)
   -t [--timeout] arg  : set timeout (default: 300)
   --log arg           : set log file path (default: empty)
-  --policy arg        : set scheduler policy (default: work_stealing)
-  --worker arg        : set number of workers (default: hardware_concurrency)
-  --throughput arg    : set max throughput of actor (default: unlimited)
   -G [--gate]         : run in gate mode
   --remote_host arg   : set remote host (only used in gate mode)
   --remote_port arg   : set remote port (only used in gate mode)
@@ -36,34 +33,31 @@ Allowed options:
 配置文件格式：
 ```xml
 <ranger_proxy>
-	<local_host>
-		<address>本地IP地址</address>
-		<port>本地端口</port>
-		<key>加密算法密钥（仅对非Gate模式有效，默认为空）</key>
-		<zlib>非0表示启用压缩（仅对非Gate模式有效，默认为0）</zlib>
-	</local_host>
-	<local_host>
-		...
-	</local_host>
-	<gate>非0表示启用Gate模式（默认为0）</gate>
-	<!-- remote_host仅在Gate模式中有效 -->
-	<remote_host>
-		<address>远程主机IP地址</address>
-		<port>远程主机端口</port>
-		<key>加密算法密钥（默认为空）</key>
-		<zlib>非0表示启用压缩（默认为0）</zlib>
-	</remote_host>
-	<remote_host>
-		...
-	</remote_host>
-	<timeout>超时时间（单位：秒，默认为300秒）</timeout>
-	<policy>调度策略（work_stealing或work_sharing，默认为work_stealing）</policy>
-	<worker>工作线程数量（默认值为hardware_concurrency）</worker>
-	<throughput>actor消息处理最大吞吐量（默认不作限制）</throughput>
-	<log>日志文件路径（默认输出到屏幕）</log>
+  <local_host>
+    <address>本地IP地址</address>
+    <port>本地端口</port>
+    <key>加密算法密钥（仅对非Gate模式有效，默认为空）</key>
+    <zlib>非0表示启用压缩（仅对非Gate模式有效，默认为0）</zlib>
+  </local_host>
+  <local_host>
+    ...
+  </local_host>
+  <gate>非0表示启用Gate模式（默认为0）</gate>
+  <!-- remote_host仅在Gate模式中有效 -->
+  <remote_host>
+    <address>远程主机IP地址</address>
+    <port>远程主机端口</port>
+    <key>加密算法密钥（默认为空）</key>
+    <zlib>非0表示启用压缩（默认为0）</zlib>
+  </remote_host>
+  <remote_host>
+    ...
+  </remote_host>
+  <timeout>超时时间（单位：秒，默认为300秒）</timeout>
+  <log>日志文件路径（默认输出到屏幕）</log>
 </ranger_proxy>
 <ranger_proxy>
-	...
+  ...
 </ranger_proxy>
 ```
 
