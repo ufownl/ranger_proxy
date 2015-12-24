@@ -29,14 +29,15 @@ namespace ranger { namespace proxy {
 namespace {
 
 template <class T>
-void handle_connect_completed(T* self,
+void handle_connect_completed(intrusive_ptr<T> self,
                               const std::string& ep_info,
                               network::asio_tcp_socket&& fd,
                               const boost::system::error_code& ec) {
+  using actor_hdl = typename T::actor_hdl;
   if (ec) {
     if (!self->exited()) {
-      log(self) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
-      self->send(self, make_error(err::network_error, "could not connect to host: " + ep_info));
+      log(self.get()) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
+      self->send(actor_cast<actor_hdl>(self), make_error(err::network_error, "could not connect to host: " + ep_info));
     } else {
       scoped_actor tmp(self->system());
       log(tmp) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
@@ -44,8 +45,8 @@ void handle_connect_completed(T* self,
   } else {
     if (!self->exited()) {
       auto& backend = static_cast<network::asio_multiplexer&>(self->parent().backend());
-      auto hdl = backend.add_tcp_scribe(self, std::move(fd));
-      self->send(self, hdl);
+      auto hdl = backend.add_tcp_scribe(self.get(), std::move(fd));
+      self->send(actor_cast<actor_hdl>(self), hdl);
     } else {
       boost::system::error_code ignored_ec;
       using boost::asio::ip::tcp;
@@ -65,7 +66,7 @@ void async_connect(intrusive_ptr<T> self, const in_addr& addr, uint16_t port) {
   using boost::asio::ip::address_v4;
   fd->async_connect(tcp::endpoint(address_v4(ntohl(addr.s_addr)), port),
     [self, ep_info, fd] (const boost::system::error_code& ec) {
-      handle_connect_completed(self.get(), ep_info, std::move(*fd), ec);
+      handle_connect_completed(self, ep_info, std::move(*fd), ec);
     }
   );
 }
@@ -81,7 +82,8 @@ void async_connect(intrusive_ptr<T> self, const std::string& host, uint16_t port
       if (ec) {
         if (!self->exited()) {
           log(self.get()) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
-          self->send(self, make_error(err::network_error, "could not resolve host: " + ep_info));
+          using actor_hdl = typename T::actor_hdl;
+          self->send(actor_cast<actor_hdl>(self), make_error(err::network_error, "could not resolve host: " + ep_info));
         } else {
           scoped_actor tmp(self->system());
           log(tmp) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
@@ -90,7 +92,7 @@ void async_connect(intrusive_ptr<T> self, const std::string& host, uint16_t port
         auto fd = std::make_shared<network::asio_tcp_socket>(*self->parent().backend().pimpl());
         boost::asio::async_connect(*fd, it,
           [self, ep_info, fd] (const error_code& ec, tcp::resolver::iterator it) {
-            handle_connect_completed(self.get(), ep_info, std::move(*fd), ec);
+            handle_connect_completed(self, ep_info, std::move(*fd), ec);
           }
         );
       }
