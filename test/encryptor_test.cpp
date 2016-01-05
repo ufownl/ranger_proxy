@@ -34,7 +34,7 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_128) {
   std::vector<char> cipher;
   {
     caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::encrypt_atom::value, plain).await(
+    self->request(enc, ranger::proxy::encrypt_atom::value, plain).receive(
       [&plain, &cipher] (ranger::proxy::encrypt_atom, const std::vector<char>& out) {
         cipher = out;
       }
@@ -45,7 +45,7 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_128) {
   std::vector<char> decrypt;
   {
     caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::decrypt_atom::value, cipher).await(
+    self->request(enc, ranger::proxy::decrypt_atom::value, cipher).receive(
       [&cipher, &decrypt] (ranger::proxy::decrypt_atom, const std::vector<char>& out) {
         decrypt = out;
       }
@@ -70,7 +70,7 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_192) {
   std::vector<char> cipher;
   {
     caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::encrypt_atom::value, plain).await(
+    self->request(enc, ranger::proxy::encrypt_atom::value, plain).receive(
       [&plain, &cipher] (ranger::proxy::encrypt_atom, const std::vector<char>& out) {
         cipher = out;
       }
@@ -81,7 +81,7 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_192) {
   std::vector<char> decrypt;
   {
     caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::decrypt_atom::value, cipher).await(
+    self->request(enc, ranger::proxy::decrypt_atom::value, cipher).receive(
       [&cipher, &decrypt] (ranger::proxy::decrypt_atom, const std::vector<char>& out) {
         decrypt = out;
       }
@@ -106,7 +106,7 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_256) {
   std::vector<char> cipher;
   {
     caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::encrypt_atom::value, plain).await(
+    self->request(enc, ranger::proxy::encrypt_atom::value, plain).receive(
       [&plain, &cipher] (ranger::proxy::encrypt_atom, const std::vector<char>& out) {
         cipher = out;
       }
@@ -117,7 +117,7 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_256) {
   std::vector<char> decrypt;
   {
     caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::decrypt_atom::value, cipher).await(
+    self->request(enc, ranger::proxy::decrypt_atom::value, cipher).receive(
       [&cipher, &decrypt] (ranger::proxy::decrypt_atom, const std::vector<char>& out) {
         decrypt = out;
       }
@@ -137,7 +137,7 @@ TEST_F(ranger_proxy_test, zlib_encryptor) {
   std::vector<char> cipher;
   {
     caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::encrypt_atom::value, plain).await(
+    self->request(enc, ranger::proxy::encrypt_atom::value, plain).receive(
       [&plain, &cipher] (ranger::proxy::encrypt_atom, const std::vector<char>& out) {
         cipher = out;
       }
@@ -148,7 +148,7 @@ TEST_F(ranger_proxy_test, zlib_encryptor) {
   std::vector<char> decrypt;
   {
     caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::decrypt_atom::value, cipher).await(
+    self->request(enc, ranger::proxy::decrypt_atom::value, cipher).receive(
       [&cipher, &decrypt] (ranger::proxy::decrypt_atom, const std::vector<char>& out) {
         decrypt = out;
       }
@@ -179,7 +179,7 @@ TEST_F(ranger_proxy_test, zlib_aes_cfb128_encryptor_256) {
   std::vector<char> cipher;
   {
     caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::encrypt_atom::value, plain).await(
+    self->request(enc, ranger::proxy::encrypt_atom::value, plain).receive(
       [&plain, &cipher] (ranger::proxy::encrypt_atom, const std::vector<char>& out) {
         cipher = out;
       }
@@ -190,7 +190,7 @@ TEST_F(ranger_proxy_test, zlib_aes_cfb128_encryptor_256) {
   std::vector<char> decrypt;
   {
     caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::decrypt_atom::value, cipher).await(
+    self->request(enc, ranger::proxy::decrypt_atom::value, cipher).receive(
       [&cipher, &decrypt] (ranger::proxy::decrypt_atom, const std::vector<char>& out) {
         decrypt = out;
       }

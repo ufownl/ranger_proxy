@@ -38,7 +38,7 @@ TEST_F(echo_test, gate_echo) {
     std::vector<uint8_t> key;
     caf::scoped_actor self(*m_sys);
     self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, false);
-    self->request(gate, caf::publish_atom::value, port).await(
+    self->request(gate, caf::publish_atom::value, port).receive(
       [&port] (uint16_t gate_port) {
         port = gate_port;
       },
@@ -77,7 +77,7 @@ TEST_F(echo_test, gate_chain_echo) {
     std::vector<uint8_t> key;
     caf::scoped_actor self(*m_sys);
     self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, false);
-    self->request(gate, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
+    self->request(gate, caf::publish_atom::value, static_cast<uint16_t>(0)).receive(
       [&port] (uint16_t gate_port) {
         port = gate_port;
       },
@@ -97,7 +97,7 @@ TEST_F(echo_test, gate_chain_echo) {
     std::vector<uint8_t> key;
     caf::scoped_actor self(*m_sys);
     self->send(gate2, caf::add_atom::value, "127.0.0.1", port, key, false);
-    self->request(gate2, caf::publish_atom::value, static_cast<uint16_t>(0)).await(
+    self->request(gate2, caf::publish_atom::value, static_cast<uint16_t>(0)).receive(
       [&port] (uint16_t gate_port) {
         port = gate_port;
       },
@@ -136,7 +136,7 @@ TEST_F(ranger_proxy_test, gate_null) {
     std::vector<uint8_t> key;
     caf::scoped_actor self(*m_sys);
     self->send(gate, caf::add_atom::value, "127.0.0.1", static_cast<uint16_t>(0x7FFF), key, false);
-    self->request(gate, caf::publish_atom::value, port).await(
+    self->request(gate, caf::publish_atom::value, port).receive(
       [&port] (uint16_t gate_port) {
         port = gate_port;
       },

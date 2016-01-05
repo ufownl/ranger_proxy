@@ -113,9 +113,9 @@ int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<
       }
 
       if (addr.empty()) {
-        self->request(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
+        self->request(serv, publish_atom::value, port).receive(ok_hdl, err_hdl);
       } else {
-        self->request(serv, publish_atom::value, addr, port).await(ok_hdl, err_hdl);
+        self->request(serv, publish_atom::value, addr, port).receive(ok_hdl, err_hdl);
       }
 
       if (ret) {
@@ -136,7 +136,7 @@ int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<
           password = node->value();
         }
 
-        self->request(serv, add_atom::value, username, password).await(
+        self->request(serv, add_atom::value, username, password).receive(
           [] (bool result, const std::string& username) {
             if (result) {
               std::cout << "INFO: Add user[" << username << "] successfully" << std::endl;
@@ -184,10 +184,10 @@ int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<
 
       if (addr.empty()) {
         self->request(serv, publish_atom::value, port,
-                      key, zlib).await(ok_hdl, err_hdl);
+                      key, zlib).receive(ok_hdl, err_hdl);
       } else {
         self->request(serv, publish_atom::value, addr, port,
-                      key, zlib).await(ok_hdl, err_hdl);
+                      key, zlib).receive(ok_hdl, err_hdl);
       }
 
       if (ret) {
@@ -287,9 +287,9 @@ int bootstrap(int argc, char* argv[]) {
         ret = 1;
       };
       if (host.empty()) {
-        self->request(serv, publish_atom::value, port).await(ok_hdl, err_hdl);
+        self->request(serv, publish_atom::value, port).receive(ok_hdl, err_hdl);
       } else {
-        self->request(serv, publish_atom::value, host, port).await(ok_hdl, err_hdl);
+        self->request(serv, publish_atom::value, host, port).receive(ok_hdl, err_hdl);
       }
 
       if (ret) {
@@ -302,7 +302,7 @@ int bootstrap(int argc, char* argv[]) {
       auto serv = sys.middleman().spawn_broker(socks5_service_impl, timeout, res.opts.count("verbose") > 0, log);
       scoped_actor self(sys);
       if (!username.empty()) {
-        self->request(serv, add_atom::value, username, password).await(
+        self->request(serv, add_atom::value, username, password).receive(
           [] (bool result, const std::string& username) {
             if (result) {
               std::cout << "INFO: Add user[" << username << "] successfully" << std::endl;
@@ -322,10 +322,10 @@ int bootstrap(int argc, char* argv[]) {
       };
       if (host.empty()) {
         self->request(serv, publish_atom::value, port,
-                      key, res.opts.count("zlib") > 0).await(ok_hdl, err_hdl);
+                      key, res.opts.count("zlib") > 0).receive(ok_hdl, err_hdl);
       } else {
         self->request(serv, publish_atom::value, host, port,
-                      key, res.opts.count("zlib") > 0).await(ok_hdl, err_hdl);
+                      key, res.opts.count("zlib") > 0).receive(ok_hdl, err_hdl);
       }
 
       if (ret) {

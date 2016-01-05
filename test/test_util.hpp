@@ -78,7 +78,7 @@ protected:
   void SetUp() final {
     m_echo = m_sys->middleman().spawn_broker(echo_service_impl);
     caf::scoped_actor self(*m_sys);
-    self->request(m_echo, caf::publish_atom::value).await(
+    self->request(m_echo, caf::publish_atom::value).receive(
       [this] (uint16_t port) {
         m_port = port;
       },
