@@ -49,8 +49,7 @@ echo_service_impl(echo_service::broker_pointer self) {
       try {
         return self->add_tcp_doorman().second;
       } catch (const caf::network_error& e) {
-        //return {caf::error_atom::value, e.what()};
-        return caf::error();
+        return caf::error(1, caf::atom("test_error"), e.what());
       }
     }
   };
@@ -82,10 +81,8 @@ protected:
       [this] (uint16_t port) {
         m_port = port;
       },
-      //[] (caf::error_atom, const std::string& what) {
-      //  std::cout << "ERROR: " << what << std::endl;
-      //}
       [] (const caf::error& e) {
+        std::cout << "ERROR: " << e.context() << std::endl;
       }
     );
     ASSERT_NE(0, m_port);

@@ -55,8 +55,6 @@ int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<
   }
 
   actor_system sys(sys_cfg);
-  scope_guard sys_guard([&sys] { sys.await_all_actors_done(); });
-
   int ret = 0;
   node = root->first_node("gate");
   if (node && atoi(node->value())) {
@@ -270,8 +268,6 @@ int bootstrap(int argc, char* argv[]) {
     return bootstrap_with_config(sys_cfg, config, res.opts.count("verbose") > 0);
   } else {
     actor_system sys(sys_cfg);
-    scope_guard sys_guard([&sys] { sys.await_all_actors_done(); });
-
     if (res.opts.count("gate") > 0) {
       int ret = 0;
       scoped_actor self(sys);
