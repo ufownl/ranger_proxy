@@ -17,7 +17,6 @@
 #include "common.hpp"
 #include "socks5_service.hpp"
 #include "gate_service.hpp"
-#include "scope_guard.hpp"
 #include <caf/io/network/asio_multiplexer_impl.hpp>
 #include <caf/policy/work_sharing.hpp>
 #include <rapidxml.hpp>
