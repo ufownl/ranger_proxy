@@ -56,7 +56,7 @@ zlib_state::encrypt_promise_type zlib_state::encrypt(const std::vector<char>& in
   encrypt_promise_type promise = m_self->make_response_promise();
   if (m_encryptor) {
     m_self->request(m_encryptor, encrypt_atom::value, compress(in)).then(
-      [promise] (encrypt_atom, const std::vector<char>& buf) {
+      [promise] (encrypt_atom, const std::vector<char>& buf) mutable {
         promise.deliver(encrypt_atom::value, buf);
       }
     );
@@ -71,7 +71,7 @@ zlib_state::decrypt_promise_type zlib_state::decrypt(const std::vector<char>& in
   decrypt_promise_type promise = m_self->make_response_promise();
   if (m_encryptor) {
     m_self->request(m_encryptor, decrypt_atom::value, in).then(
-      [this, promise] (decrypt_atom, const std::vector<char>& buf) {
+      [this, promise] (decrypt_atom, const std::vector<char>& buf) mutable {
         promise.deliver(decrypt_atom::value, uncompress(buf));
       }
     );
