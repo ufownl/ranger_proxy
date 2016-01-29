@@ -53,7 +53,7 @@ private:
     }
 
     m_consuming = true;
-    scope_guard consuming_guard([this] { m_consuming = false; });
+    auto consuming_guard = make_scope_guard([this] { m_consuming = false; });
 
     while (m_expected_len > 0 && m_current_len - m_offset >= m_expected_len) {
       std::vector<char> expected_buf;

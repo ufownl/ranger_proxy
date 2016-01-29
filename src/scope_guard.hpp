@@ -17,15 +17,15 @@
 #ifndef RANGER_PROXY_SCOPE_GUARD_HPP
 #define RANGER_PROXY_SCOPE_GUARD_HPP
 
-#include <functional>
+#include <utility>
 
 namespace ranger { namespace proxy {
 
+template <class T>
 class scope_guard {
 public:
-  template <class T>
-  explicit scope_guard(T&& handler)
-    : m_exit_handler(std::forward<T>(handler))
+  explicit scope_guard(T handler)
+    : m_exit_handler(std::move(handler))
     , m_dismiss(false) {
     // nop
   }
@@ -39,14 +39,25 @@ public:
   scope_guard(const scope_guard&) = delete;
   scope_guard& operator = (const scope_guard&) = delete;
 
+  scope_guard(scope_guard<T>&& rhs)
+    : m_exit_handler(std::move(rhs.m_exit_handler))
+    , m_dismiss(rhs.m_dismiss) {
+    rhs.m_dismiss = false;
+  }
+
   void dismiss() {
     m_dismiss = true;
   }
 
 private:
-  std::function<void()> m_exit_handler;
+  T m_exit_handler;
   bool m_dismiss;
 };
+
+template <class T>
+scope_guard<T> make_scope_guard(T handler) {
+  return scope_guard<T>(std::move(handler));
+}
 
 } }
 

@@ -97,6 +97,6 @@ protected:
   uint16_t m_port {0};
 };
 
-using ranger::proxy::scope_guard;
+using ranger::proxy::make_scope_guard;
 
 #endif  // TEST_UTIL_HPP

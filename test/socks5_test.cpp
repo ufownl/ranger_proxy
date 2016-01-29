@@ -34,7 +34,7 @@
 
 TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  scope_guard guard_socks5([socks5] {
+  auto guard_socks5 = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
 
@@ -55,7 +55,7 @@ TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   ASSERT_NE(-1, fd);
-  scope_guard guard_fd([fd] { close(fd); });
+  auto guard_fd = make_scope_guard([fd] { close(fd); });
 
   sockaddr_in sin = {0};
   sin.sin_family = AF_INET;
@@ -112,7 +112,7 @@ TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
 
 TEST_F(echo_test, socks5_no_auth_conn_domainname) {
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  scope_guard guard_socks5([socks5] {
+  auto guard_socks5 = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
 
@@ -133,7 +133,7 @@ TEST_F(echo_test, socks5_no_auth_conn_domainname) {
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   ASSERT_NE(-1, fd);
-  scope_guard guard_fd([fd] { close(fd); });
+  auto guard_fd = make_scope_guard([fd] { close(fd); });
 
   sockaddr_in sin = {0};
   sin.sin_family = AF_INET;
@@ -192,7 +192,7 @@ TEST_F(echo_test, socks5_no_auth_conn_domainname) {
 
 TEST_F(ranger_proxy_test, socks5_no_auth_conn_ipv4_null) {
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  scope_guard guard_socks5([socks5] {
+  auto guard_socks5 = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
 
@@ -214,7 +214,7 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_ipv4_null) {
   for (auto i = 0; i < 10; ++i) {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     ASSERT_NE(-1, fd);
-    scope_guard guard_fd([fd] { close(fd); });
+    auto guard_fd = make_scope_guard([fd] { close(fd); });
 
     sockaddr_in sin = {0};
     sin.sin_family = AF_INET;
@@ -263,7 +263,7 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_ipv4_null) {
 
 TEST_F(ranger_proxy_test, socks5_no_auth_conn_domainname_null) {
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  scope_guard guard_socks5([socks5] {
+  auto guard_socks5 = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
 
@@ -285,7 +285,7 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_domainname_null) {
   for (auto i = 0; i < 10; ++i) {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     ASSERT_NE(-1, fd);
-    scope_guard guard_fd([fd] { close(fd); });
+    auto guard_fd = make_scope_guard([fd] { close(fd); });
 
     sockaddr_in sin = {0};
     sin.sin_family = AF_INET;
@@ -340,12 +340,12 @@ TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
   std::vector<uint8_t> key(str.begin(), str.end());
 
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  scope_guard guard_socks5([socks5] {
+  auto guard_socks5 = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
 
   auto gate = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
-  scope_guard guard_gate([gate] {
+  auto guard_gate = make_scope_guard([gate] {
     caf::anon_send_exit(gate, caf::exit_reason::kill);
   });
 
@@ -380,7 +380,7 @@ TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   ASSERT_NE(-1, fd);
-  scope_guard guard_fd([fd] { close(fd); });
+  auto guard_fd = make_scope_guard([fd] { close(fd); });
 
   sockaddr_in sin = {0};
   sin.sin_family = AF_INET;
@@ -440,12 +440,12 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
   std::vector<uint8_t> key(str.begin(), str.end());
 
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  scope_guard guard_socks5([socks5] {
+  auto guard_socks5 = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
 
   auto gate = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
-  scope_guard guard_gate([gate] {
+  auto guard_gate = make_scope_guard([gate] {
     caf::anon_send_exit(gate, caf::exit_reason::kill);
   });
 
@@ -480,7 +480,7 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   ASSERT_NE(-1, fd);
-  scope_guard guard_fd([fd] { close(fd); });
+  auto guard_fd = make_scope_guard([fd] { close(fd); });
 
   sockaddr_in sin = {0};
   sin.sin_family = AF_INET;
@@ -535,12 +535,12 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
   std::vector<uint8_t> key(str.begin(), str.end());
 
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  scope_guard guard_socks5([socks5] {
+  auto guard_socks5 = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
 
   auto gate = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
-  scope_guard guard_gate([gate] {
+  auto guard_gate = make_scope_guard([gate] {
     caf::anon_send_exit(gate, caf::exit_reason::kill);
   });
 
@@ -575,7 +575,7 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   ASSERT_NE(-1, fd);
-  scope_guard guard_fd([fd] { close(fd); });
+  auto guard_fd = make_scope_guard([fd] { close(fd); });
 
   sockaddr_in sin = {0};
   sin.sin_family = AF_INET;
@@ -630,7 +630,7 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
 
 TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  scope_guard guard_socks5([socks5] {
+  auto guard_socks5 = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
 
@@ -652,7 +652,7 @@ TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   ASSERT_NE(-1, fd);
-  scope_guard guard_fd([fd] { close(fd); });
+  auto guard_fd = make_scope_guard([fd] { close(fd); });
 
   sockaddr_in sin = {0};
   sin.sin_family = AF_INET;
@@ -731,7 +731,7 @@ TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
 
 TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  scope_guard guard_socks5([socks5] {
+  auto guard_socks5 = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
 
@@ -753,7 +753,7 @@ TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   ASSERT_NE(-1, fd);
-  scope_guard guard_fd([fd] { close(fd); });
+  auto guard_fd = make_scope_guard([fd] { close(fd); });
 
   sockaddr_in sin = {0};
   sin.sin_family = AF_INET;
@@ -830,7 +830,7 @@ TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
 
 TEST_F(echo_test, socks5_username_auth_conn_domainname) {
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  scope_guard guard_socks5([socks5] {
+  auto guard_socks5 = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
 
@@ -852,7 +852,7 @@ TEST_F(echo_test, socks5_username_auth_conn_domainname) {
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   ASSERT_NE(-1, fd);
-  scope_guard guard_fd([fd] { close(fd); });
+  auto guard_fd = make_scope_guard([fd] { close(fd); });
 
   sockaddr_in sin = {0};
   sin.sin_family = AF_INET;
@@ -933,7 +933,7 @@ TEST_F(echo_test, socks5_username_auth_conn_domainname) {
 
 TEST_F(ranger_proxy_test, socks5_username_auth_failed) {
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  scope_guard guard_socks5([socks5] {
+  auto guard_socks5 = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
 
@@ -955,7 +955,7 @@ TEST_F(ranger_proxy_test, socks5_username_auth_failed) {
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   ASSERT_NE(-1, fd);
-  scope_guard guard_fd([fd] { close(fd); });
+  auto guard_fd = make_scope_guard([fd] { close(fd); });
 
   sockaddr_in sin = {0};
   sin.sin_family = AF_INET;

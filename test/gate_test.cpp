@@ -29,7 +29,7 @@
 
 TEST_F(echo_test, gate_echo) {
   auto gate = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
-  scope_guard guard_gate([gate] {
+  auto guard_gate = make_scope_guard([gate] {
     caf::anon_send_exit(gate, caf::exit_reason::kill);
   });
 
@@ -51,7 +51,7 @@ TEST_F(echo_test, gate_echo) {
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   ASSERT_NE(-1, fd);
-  scope_guard guard_fd([fd] { close(fd); });
+  auto guard_fd = make_scope_guard([fd] { close(fd); });
 
   sockaddr_in sin = {0};
   sin.sin_family = AF_INET;
@@ -68,7 +68,7 @@ TEST_F(echo_test, gate_echo) {
 
 TEST_F(echo_test, gate_chain_echo) {
   auto gate = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
-  scope_guard guard_gate([gate] {
+  auto guard_gate = make_scope_guard([gate] {
     caf::anon_send_exit(gate, caf::exit_reason::kill);
   });
 
@@ -89,7 +89,7 @@ TEST_F(echo_test, gate_chain_echo) {
   ASSERT_NE(0, port);
 
   auto gate2 = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
-  scope_guard guard_gate2([gate2] {
+  auto guard_gate2 = make_scope_guard([gate2] {
     caf::anon_send_exit(gate2, caf::exit_reason::kill);
   });
 
@@ -110,7 +110,7 @@ TEST_F(echo_test, gate_chain_echo) {
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   ASSERT_NE(-1, fd);
-  scope_guard guard_fd([fd] { close(fd); });
+  auto guard_fd = make_scope_guard([fd] { close(fd); });
 
   sockaddr_in sin = {0};
   sin.sin_family = AF_INET;
@@ -127,7 +127,7 @@ TEST_F(echo_test, gate_chain_echo) {
 
 TEST_F(ranger_proxy_test, gate_null) {
   auto gate = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
-  scope_guard guard_gate([gate] {
+  auto guard_gate = make_scope_guard([gate] {
     caf::anon_send_exit(gate, caf::exit_reason::kill);
   });
 
@@ -150,7 +150,7 @@ TEST_F(ranger_proxy_test, gate_null) {
   for (auto i = 0; i < 10; ++i) {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     ASSERT_NE(-1, fd);
-    scope_guard guard_fd([fd] { close(fd); });
+    auto guard_fd = make_scope_guard([fd] { close(fd); });
 
     sockaddr_in sin = {0};
     sin.sin_family = AF_INET;
