@@ -231,7 +231,7 @@ int bootstrap(int argc, char* argv[]) {
   uint16_t remote_port = 0;
   std::string config;
 
-  auto res = message_builder(argv + 1, argv + argc).extract_opts({
+  auto res = sys_cfg.args_remainder.extract_opts({
     {"host,H", "set host", host},
     {"port,p", "set port (default: 1080)", port},
     {"username", "set username (it will enable username auth method)", username},
