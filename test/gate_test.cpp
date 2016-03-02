@@ -29,24 +29,14 @@
 
 TEST_F(echo_test, gate_echo) {
   auto gate = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
-  auto guard_gate = make_scope_guard([gate] {
+  auto gate_guard = make_scope_guard([gate] {
     caf::anon_send_exit(gate, caf::exit_reason::kill);
   });
+  auto gate_fv = caf::make_function_view(gate);
 
-  uint16_t port = 0;
-  {
-    std::vector<uint8_t> key;
-    caf::scoped_actor self(*m_sys);
-    self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, false);
-    self->request(gate, caf::publish_atom::value, port).receive(
-      [&port] (uint16_t gate_port) {
-        port = gate_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  gate_fv(caf::add_atom::value, "127.0.0.1", m_port,
+          std::vector<uint8_t>(), false);
+  auto port = gate_fv(caf::publish_atom::value, static_cast<uint16_t>(0));
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -68,44 +58,27 @@ TEST_F(echo_test, gate_echo) {
 
 TEST_F(echo_test, gate_chain_echo) {
   auto gate = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
-  auto guard_gate = make_scope_guard([gate] {
+  auto gate_guard = make_scope_guard([gate] {
     caf::anon_send_exit(gate, caf::exit_reason::kill);
   });
+  auto gate_fv = caf::make_function_view(gate);
 
-  uint16_t port = 0;
-  {
-    std::vector<uint8_t> key;
-    caf::scoped_actor self(*m_sys);
-    self->send(gate, caf::add_atom::value, "127.0.0.1", m_port, key, false);
-    self->request(gate, caf::publish_atom::value, static_cast<uint16_t>(0)).receive(
-      [&port] (uint16_t gate_port) {
-        port = gate_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  gate_fv(caf::add_atom::value, "127.0.0.1", m_port,
+          std::vector<uint8_t>(), false);
+  auto port = gate_fv(caf::publish_atom::value, static_cast<uint16_t>(0));
   ASSERT_NE(0, port);
 
-  auto gate2 = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
-  auto guard_gate2 = make_scope_guard([gate2] {
+  auto gate2 =
+    m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl,
+                                    300, std::string());
+  auto gate2_guard = make_scope_guard([gate2] {
     caf::anon_send_exit(gate2, caf::exit_reason::kill);
   });
+  auto gate2_fv = caf::make_function_view(gate2);
 
-  {
-    std::vector<uint8_t> key;
-    caf::scoped_actor self(*m_sys);
-    self->send(gate2, caf::add_atom::value, "127.0.0.1", port, key, false);
-    self->request(gate2, caf::publish_atom::value, static_cast<uint16_t>(0)).receive(
-      [&port] (uint16_t gate_port) {
-        port = gate_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  gate2_fv(caf::add_atom::value, "127.0.0.1", port,
+           std::vector<uint8_t>(), false);
+  port = gate2_fv(caf::publish_atom::value, static_cast<uint16_t>(0));
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -127,24 +100,14 @@ TEST_F(echo_test, gate_chain_echo) {
 
 TEST_F(ranger_proxy_test, gate_null) {
   auto gate = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
-  auto guard_gate = make_scope_guard([gate] {
+  auto gate_guard = make_scope_guard([gate] {
     caf::anon_send_exit(gate, caf::exit_reason::kill);
   });
+  auto gate_fv = caf::make_function_view(gate);
 
-  uint16_t port = 0;
-  {
-    std::vector<uint8_t> key;
-    caf::scoped_actor self(*m_sys);
-    self->send(gate, caf::add_atom::value, "127.0.0.1", static_cast<uint16_t>(0x7FFF), key, false);
-    self->request(gate, caf::publish_atom::value, port).receive(
-      [&port] (uint16_t gate_port) {
-        port = gate_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  gate_fv(caf::add_atom::value, "127.0.0.1", static_cast<uint16_t>(0x7FFF),
+          std::vector<uint8_t>(), false);
+  auto port = gate_fv(caf::publish_atom::value, static_cast<uint16_t>(0));
   ASSERT_NE(0, port);
 
   for (auto i = 0; i < 10; ++i) {
@@ -159,5 +122,6 @@ TEST_F(ranger_proxy_test, gate_null) {
     ASSERT_EQ(0, connect(fd, reinterpret_cast<sockaddr*>(&sin), sizeof(sin)));
   }
 
+  gate_fv.assign(caf::invalid_actor);
   m_sys->registry().await_running_count_equal(1);
 }

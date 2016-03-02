@@ -25,34 +25,21 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_128) {
 
   std::vector<uint8_t> key(str.begin(), str.end());
   std::vector<uint8_t> ivec;
-  auto enc = m_sys->spawn(ranger::proxy::aes_cfb128_encryptor_impl, key, ivec);
-  auto guard_enc = make_scope_guard([enc] {
+  auto enc =
+    m_sys->spawn(ranger::proxy::aes_cfb128_encryptor_impl, key, ivec);
+  auto enc_guard = make_scope_guard([enc] {
     caf::anon_send_exit(enc, caf::exit_reason::kill);
   });
+  auto enc_fv = caf::make_function_view(enc);
 
   std::vector<char> plain = {'H', 'e', 'l', 'l', 'o'};
-  std::vector<char> cipher;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::encrypt_atom::value, plain).receive(
-      [&plain, &cipher] (ranger::proxy::encrypt_atom, const std::vector<char>& out) {
-        cipher = out;
-      }
-    );
-  }
-  EXPECT_NE(plain, cipher);
+  auto cipher = enc_fv(ranger::proxy::encrypt_atom::value, plain);
+  EXPECT_NE(plain, std::get<1>(cipher));
 
-  std::vector<char> decrypt;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::decrypt_atom::value, cipher).receive(
-      [&cipher, &decrypt] (ranger::proxy::decrypt_atom, const std::vector<char>& out) {
-        decrypt = out;
-      }
-    );
-  }
-  EXPECT_NE(cipher, decrypt);
-  EXPECT_EQ(plain, decrypt);
+  auto decrypt =
+    enc_fv(ranger::proxy::decrypt_atom::value, std::get<1>(cipher));
+  EXPECT_NE(std::get<1>(cipher), std::get<1>(decrypt));
+  EXPECT_EQ(plain, std::get<1>(decrypt));
 }
 
 TEST_F(ranger_proxy_test, aes_cfb128_encryptor_192) {
@@ -61,34 +48,21 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_192) {
 
   std::vector<uint8_t> key(str.begin(), str.end());
   std::vector<uint8_t> ivec;
-  auto enc = m_sys->spawn(ranger::proxy::aes_cfb128_encryptor_impl, key, ivec);
-  auto guard_enc = make_scope_guard([enc] {
+  auto enc =
+    m_sys->spawn(ranger::proxy::aes_cfb128_encryptor_impl, key, ivec);
+  auto enc_guard = make_scope_guard([enc] {
     caf::anon_send_exit(enc, caf::exit_reason::kill);
   });
+  auto enc_fv = caf::make_function_view(enc);
 
   std::vector<char> plain = {'W', 'o', 'r', 'l', 'd'};
-  std::vector<char> cipher;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::encrypt_atom::value, plain).receive(
-      [&plain, &cipher] (ranger::proxy::encrypt_atom, const std::vector<char>& out) {
-        cipher = out;
-      }
-    );
-  }
-  EXPECT_NE(plain, cipher);
+  auto cipher = enc_fv(ranger::proxy::encrypt_atom::value, plain);
+  EXPECT_NE(plain, std::get<1>(cipher));
 
-  std::vector<char> decrypt;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::decrypt_atom::value, cipher).receive(
-      [&cipher, &decrypt] (ranger::proxy::decrypt_atom, const std::vector<char>& out) {
-        decrypt = out;
-      }
-    );
-  }
-  EXPECT_NE(cipher, decrypt);
-  EXPECT_EQ(plain, decrypt);
+  auto decrypt =
+    enc_fv(ranger::proxy::decrypt_atom::value, std::get<1>(cipher));
+  EXPECT_NE(std::get<1>(cipher), std::get<1>(decrypt));
+  EXPECT_EQ(plain, std::get<1>(decrypt));
 }
 
 TEST_F(ranger_proxy_test, aes_cfb128_encryptor_256) {
@@ -97,65 +71,38 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_256) {
 
   std::vector<uint8_t> key(str.begin(), str.end());
   std::vector<uint8_t> ivec;
-  auto enc = m_sys->spawn(ranger::proxy::aes_cfb128_encryptor_impl, key, ivec);
-  auto guard_enc = make_scope_guard([enc] {
+  auto enc =
+    m_sys->spawn(ranger::proxy::aes_cfb128_encryptor_impl, key, ivec);
+  auto enc_guard = make_scope_guard([enc] {
     caf::anon_send_exit(enc, caf::exit_reason::kill);
   });
+  auto enc_fv = caf::make_function_view(enc);
 
   std::vector<char> plain = {'R', 'a', 'n', 'g', 'e', 'r'};
-  std::vector<char> cipher;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::encrypt_atom::value, plain).receive(
-      [&plain, &cipher] (ranger::proxy::encrypt_atom, const std::vector<char>& out) {
-        cipher = out;
-      }
-    );
-  }
-  EXPECT_NE(plain, cipher);
+  auto cipher = enc_fv(ranger::proxy::encrypt_atom::value, plain);
+  EXPECT_NE(plain, std::get<1>(cipher));
 
-  std::vector<char> decrypt;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::decrypt_atom::value, cipher).receive(
-      [&cipher, &decrypt] (ranger::proxy::decrypt_atom, const std::vector<char>& out) {
-        decrypt = out;
-      }
-    );
-  }
-  EXPECT_NE(cipher, decrypt);
-  EXPECT_EQ(plain, decrypt);
+  auto decrypt =
+    enc_fv(ranger::proxy::decrypt_atom::value, std::get<1>(cipher));
+  EXPECT_NE(std::get<1>(cipher), std::get<1>(decrypt));
+  EXPECT_EQ(plain, std::get<1>(decrypt));
 }
 
 TEST_F(ranger_proxy_test, zlib_encryptor) {
   auto enc = m_sys->spawn(ranger::proxy::zlib_encryptor_impl, ranger::proxy::encryptor());
-  auto guard_enc = make_scope_guard([enc] {
+  auto enc_guard = make_scope_guard([enc] {
     caf::anon_send_exit(enc, caf::exit_reason::kill);
   });
+  auto enc_fv = caf::make_function_view(enc);
 
   std::vector<char> plain(8192, 'a');
-  std::vector<char> cipher;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::encrypt_atom::value, plain).receive(
-      [&plain, &cipher] (ranger::proxy::encrypt_atom, const std::vector<char>& out) {
-        cipher = out;
-      }
-    );
-  }
-  EXPECT_NE(plain, cipher);
+  auto cipher = enc_fv(ranger::proxy::encrypt_atom::value, plain);
+  EXPECT_NE(plain, std::get<1>(cipher));
 
-  std::vector<char> decrypt;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::decrypt_atom::value, cipher).receive(
-      [&cipher, &decrypt] (ranger::proxy::decrypt_atom, const std::vector<char>& out) {
-        decrypt = out;
-      }
-    );
-  }
-  EXPECT_NE(cipher, decrypt);
-  EXPECT_EQ(plain, decrypt);
+  auto decrypt =
+    enc_fv(ranger::proxy::decrypt_atom::value, std::get<1>(cipher));
+  EXPECT_NE(std::get<1>(cipher), std::get<1>(decrypt));
+  EXPECT_EQ(plain, std::get<1>(decrypt));
 }
 
 TEST_F(ranger_proxy_test, zlib_aes_cfb128_encryptor_256) {
@@ -166,36 +113,22 @@ TEST_F(ranger_proxy_test, zlib_aes_cfb128_encryptor_256) {
   std::vector<uint8_t> ivec;
   
   auto zlib_enc = m_sys->spawn(ranger::proxy::aes_cfb128_encryptor_impl, key, ivec);
-  auto guard_zlib_enc = make_scope_guard([zlib_enc] {
+  auto zlib_enc_guard = make_scope_guard([zlib_enc] {
     caf::anon_send_exit(zlib_enc, caf::exit_reason::kill);
   });
 
   auto enc = m_sys->spawn(ranger::proxy::zlib_encryptor_impl, zlib_enc);
-  auto guard_enc = make_scope_guard([enc] {
+  auto enc_guard = make_scope_guard([enc] {
     caf::anon_send_exit(enc, caf::exit_reason::kill);
   });
+  auto enc_fv = caf::make_function_view(enc);
 
   std::vector<char> plain(8192, 'b');
-  std::vector<char> cipher;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::encrypt_atom::value, plain).receive(
-      [&plain, &cipher] (ranger::proxy::encrypt_atom, const std::vector<char>& out) {
-        cipher = out;
-      }
-    );
-  }
-  EXPECT_NE(plain, cipher);
+  auto cipher = enc_fv(ranger::proxy::encrypt_atom::value, plain);
+  EXPECT_NE(plain, std::get<1>(cipher));
 
-  std::vector<char> decrypt;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(enc, ranger::proxy::decrypt_atom::value, cipher).receive(
-      [&cipher, &decrypt] (ranger::proxy::decrypt_atom, const std::vector<char>& out) {
-        decrypt = out;
-      }
-    );
-  }
-  EXPECT_NE(cipher, decrypt);
-  EXPECT_EQ(plain, decrypt);
+  auto decrypt =
+    enc_fv(ranger::proxy::decrypt_atom::value, std::get<1>(cipher));
+  EXPECT_NE(std::get<1>(cipher), std::get<1>(decrypt));
+  EXPECT_EQ(plain, std::get<1>(decrypt));
 }

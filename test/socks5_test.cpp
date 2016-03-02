@@ -33,24 +33,16 @@
 #include <string.h>
 
 TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
-  auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  auto guard_socks5 = make_scope_guard([socks5] {
+  auto socks5 =
+    m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl,
+                                    300, false, std::string());
+  auto socks5_guard = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
+  auto socks5_fv = caf::make_function_view(socks5);
 
-  uint16_t port = 0;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(socks5, caf::publish_atom::value, port,
-                  std::vector<uint8_t>(), false).receive(
-      [&port] (uint16_t socks5_port) {
-        port = socks5_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                        std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -112,23 +104,13 @@ TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
 
 TEST_F(echo_test, socks5_no_auth_conn_domainname) {
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  auto guard_socks5 = make_scope_guard([socks5] {
+  auto socks5_guard = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
+  auto socks5_fv = caf::make_function_view(socks5);
 
-  uint16_t port = 0;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(socks5, caf::publish_atom::value, port,
-                  std::vector<uint8_t>(), false).receive(
-      [&port] (uint16_t socks5_port) {
-        port = socks5_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                        std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -192,23 +174,13 @@ TEST_F(echo_test, socks5_no_auth_conn_domainname) {
 
 TEST_F(ranger_proxy_test, socks5_no_auth_conn_ipv4_null) {
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  auto guard_socks5 = make_scope_guard([socks5] {
+  auto socks5_guard = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
+  auto socks5_fv = caf::make_function_view(socks5);
 
-  uint16_t port = 0;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(socks5, caf::publish_atom::value, port,
-                  std::vector<uint8_t>(), false).receive(
-      [&port] (uint16_t socks5_port) {
-        port = socks5_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                        std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   for (auto i = 0; i < 10; ++i) {
@@ -263,23 +235,13 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_ipv4_null) {
 
 TEST_F(ranger_proxy_test, socks5_no_auth_conn_domainname_null) {
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  auto guard_socks5 = make_scope_guard([socks5] {
+  auto socks5_guard = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
+  auto socks5_fv = caf::make_function_view(socks5);
 
-  uint16_t port = 0;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(socks5, caf::publish_atom::value, port,
-                  std::vector<uint8_t>(), false).receive(
-      [&port] (uint16_t socks5_port) {
-        port = socks5_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                        std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   for (auto i = 0; i < 10; ++i) {
@@ -340,42 +302,23 @@ TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
   std::vector<uint8_t> key(str.begin(), str.end());
 
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  auto guard_socks5 = make_scope_guard([socks5] {
+  auto socks5_guard = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
+  auto socks5_fv = caf::make_function_view(socks5);
 
   auto gate = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
-  auto guard_gate = make_scope_guard([gate] {
+  auto gate_guard = make_scope_guard([gate] {
     caf::anon_send_exit(gate, caf::exit_reason::kill);
   });
+  auto gate_fv = caf::make_function_view(gate);
 
-  uint16_t port = 0;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(socks5, caf::publish_atom::value, static_cast<uint16_t>(0),
-                  key, false).receive(
-      [&port] (uint16_t socks5_port) {
-        port = socks5_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                        key, false);
   ASSERT_NE(0, port);
 
-  {
-    caf::scoped_actor self(*m_sys);
-    self->send(gate, caf::add_atom::value, "127.0.0.1", port, key, false);
-    self->request(gate, caf::publish_atom::value, static_cast<uint16_t>(0)).receive(
-      [&port] (uint16_t gate_port) {
-        port = gate_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  gate_fv(caf::add_atom::value, "127.0.0.1", port, key, false);
+  port = gate_fv(caf::publish_atom::value, static_cast<uint16_t>(0));
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -440,42 +383,23 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
   std::vector<uint8_t> key(str.begin(), str.end());
 
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  auto guard_socks5 = make_scope_guard([socks5] {
+  auto socks5_guard = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
+  auto socks5_fv = caf::make_function_view(socks5);
 
   auto gate = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
-  auto guard_gate = make_scope_guard([gate] {
+  auto gate_guard = make_scope_guard([gate] {
     caf::anon_send_exit(gate, caf::exit_reason::kill);
   });
+  auto gate_fv = caf::make_function_view(gate);
 
-  uint16_t port = 0;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(socks5, caf::publish_atom::value, static_cast<uint16_t>(0),
-                  key, false).receive(
-      [&port] (uint16_t socks5_port) {
-        port = socks5_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                        key, false);
   ASSERT_NE(0, port);
 
-  {
-    caf::scoped_actor self(*m_sys);
-    self->send(gate, caf::add_atom::value, "127.0.0.1", port, key, false);
-    self->request(gate, caf::publish_atom::value, static_cast<uint16_t>(0)).receive(
-      [&port] (uint16_t gate_port) {
-        port = gate_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  gate_fv(caf::add_atom::value, "127.0.0.1", port, key, false);
+  port = gate_fv(caf::publish_atom::value, static_cast<uint16_t>(0));
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -525,6 +449,8 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
     ASSERT_EQ(sizeof(reply_port), recv(fd, &reply_port, sizeof(reply_port), 0));
   }
 
+  socks5_fv.assign(caf::invalid_actor);
+  gate_fv.assign(caf::invalid_actor);
   while (m_sys->registry().running() > 2) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
@@ -535,42 +461,23 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
   std::vector<uint8_t> key(str.begin(), str.end());
 
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  auto guard_socks5 = make_scope_guard([socks5] {
+  auto socks5_guard = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
+  auto socks5_fv = caf::make_function_view(socks5);
 
   auto gate = m_sys->middleman().spawn_broker(ranger::proxy::gate_service_impl, 300, std::string());
-  auto guard_gate = make_scope_guard([gate] {
+  auto gate_guard = make_scope_guard([gate] {
     caf::anon_send_exit(gate, caf::exit_reason::kill);
   });
+  auto gate_fv = caf::make_function_view(gate);
 
-  uint16_t port = 0;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->request(socks5, caf::publish_atom::value, static_cast<uint16_t>(0),
-                  key, false).receive(
-      [&port] (uint16_t socks5_port) {
-        port = socks5_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                        key, false);
   ASSERT_NE(0, port);
 
-  {
-    caf::scoped_actor self(*m_sys);
-    self->send(gate, caf::add_atom::value, "127.0.0.1", port, key, false);
-    self->request(gate, caf::publish_atom::value, static_cast<uint16_t>(0)).receive(
-      [&port] (uint16_t gate_port) {
-        port = gate_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  gate_fv(caf::add_atom::value, "127.0.0.1", port, key, false);
+  port = gate_fv(caf::publish_atom::value, static_cast<uint16_t>(0));
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -623,6 +530,8 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
     ASSERT_EQ(sizeof(reply_port), recv(fd, &reply_port, sizeof(reply_port), 0));
   }
 
+  socks5_fv.assign(caf::invalid_actor);
+  gate_fv.assign(caf::invalid_actor);
   while (m_sys->registry().running() > 2) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
@@ -630,24 +539,14 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
 
 TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  auto guard_socks5 = make_scope_guard([socks5] {
+  auto socks5_guard = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
+  auto socks5_fv = caf::make_function_view(socks5);
 
-  uint16_t port = 0;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->send(socks5, caf::add_atom::value, "test", "Hello, world!");
-    self->request(socks5, caf::publish_atom::value, port,
-                  std::vector<uint8_t>(), false).receive(
-      [&port] (uint16_t socks5_port) {
-        port = socks5_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  socks5_fv(caf::add_atom::value, "test", "Hello, world!");
+  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                        std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -731,24 +630,14 @@ TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
 
 TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  auto guard_socks5 = make_scope_guard([socks5] {
+  auto socks5_guard = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
+  auto socks5_fv = caf::make_function_view(socks5);
 
-  uint16_t port = 0;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->send(socks5, caf::add_atom::value, "test", std::string());
-    self->request(socks5, caf::publish_atom::value, port,
-                  std::vector<uint8_t>(), false).receive(
-      [&port] (uint16_t socks5_port) {
-        port = socks5_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  socks5_fv(caf::add_atom::value, "test", std::string());
+  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0), 
+                        std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -830,24 +719,14 @@ TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
 
 TEST_F(echo_test, socks5_username_auth_conn_domainname) {
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  auto guard_socks5 = make_scope_guard([socks5] {
+  auto socks5_guard = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
+  auto socks5_fv = caf::make_function_view(socks5);
 
-  uint16_t port = 0;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->send(socks5, caf::add_atom::value, "test", "Hello, world!");
-    self->request(socks5, caf::publish_atom::value, port,
-                  std::vector<uint8_t>(), false).receive(
-      [&port] (uint16_t socks5_port) {
-        port = socks5_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  socks5_fv(caf::add_atom::value, "test", "Hello, world!");
+  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                        std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -933,24 +812,14 @@ TEST_F(echo_test, socks5_username_auth_conn_domainname) {
 
 TEST_F(ranger_proxy_test, socks5_username_auth_failed) {
   auto socks5 = m_sys->middleman().spawn_broker(ranger::proxy::socks5_service_impl, 300, false, std::string());
-  auto guard_socks5 = make_scope_guard([socks5] {
+  auto socks5_guard = make_scope_guard([socks5] {
     caf::anon_send_exit(socks5, caf::exit_reason::kill);
   });
+  auto socks5_fv = caf::make_function_view(socks5);
 
-  uint16_t port = 0;
-  {
-    caf::scoped_actor self(*m_sys);
-    self->send(socks5, caf::add_atom::value, "auth_failed", "auth_failed");
-    self->request(socks5, caf::publish_atom::value, port,
-                  std::vector<uint8_t>(), false).receive(
-      [&port] (uint16_t socks5_port) {
-        port = socks5_port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
-  }
+  socks5_fv(caf::add_atom::value, "auth_failed", "auth_failed");
+  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                        std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -999,6 +868,7 @@ TEST_F(ranger_proxy_test, socks5_username_auth_failed) {
     ASSERT_NE(0x00, buf[1]);
   }
 
+  socks5_fv.assign(caf::invalid_actor);
   while (m_sys->registry().running() > 2) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }

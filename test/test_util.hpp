@@ -76,15 +76,8 @@ class echo_test : public ranger_proxy_test {
 protected:
   void SetUp() final {
     m_echo = m_sys->middleman().spawn_broker(echo_service_impl);
-    caf::scoped_actor self(*m_sys);
-    self->request(m_echo, caf::publish_atom::value).receive(
-      [this] (uint16_t port) {
-        m_port = port;
-      },
-      [] (const caf::error& e) {
-        std::cout << "ERROR: " << e.context() << std::endl;
-      }
-    );
+    auto echo_fv = caf::make_function_view(m_echo);
+    m_port = echo_fv(caf::publish_atom::value);
     ASSERT_NE(0, m_port);
   }
 

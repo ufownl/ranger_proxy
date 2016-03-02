@@ -268,66 +268,49 @@ int bootstrap(int argc, char* argv[]) {
   } else {
     actor_system sys(sys_cfg);
     if (res.opts.count("gate") > 0) {
-      int ret = 0;
-      scoped_actor self(sys);
       auto serv = sys.middleman().spawn_broker(gate_service_impl, timeout, log);
+      auto serv_fv = make_function_view(serv);
       std::vector<uint8_t> key(key_src.begin(), key_src.end());
-      self->send(serv, add_atom::value, remote_host, remote_port,
-                 key, res.opts.count("zlib") > 0);
-      auto ok_hdl = [] (uint16_t) {
+      try {
+        serv_fv(add_atom::value, remote_host, remote_port, key,
+                res.opts.count("zlib") > 0);
+        if (host.empty()) {
+          serv_fv(publish_atom::value, port);
+        } else {
+          serv_fv(publish_atom::value, host, port);
+        }
         std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
-      };
-      auto err_hdl = [&ret] (error& e) {
-        std::cerr << "ERROR: " << e.context() << std::endl;
-        ret = 1;
-      };
-      if (host.empty()) {
-        self->request(serv, publish_atom::value, port).receive(ok_hdl, err_hdl);
-      } else {
-        self->request(serv, publish_atom::value, host, port).receive(ok_hdl, err_hdl);
+      } catch (const std::exception& e) {
+        std::cerr << "ERROR: " << e.what() << std::endl;
+        anon_send(serv, exit_reason::kill);
+        return 1;
       }
-
-      if (ret) {
-        anon_send_exit(serv, exit_reason::kill);
-      }
-
-      return ret;
+      return 0;
     } else {
-      int ret = 0;
       auto serv = sys.middleman().spawn_broker(socks5_service_impl, timeout, res.opts.count("verbose") > 0, log);
-      scoped_actor self(sys);
-      if (!username.empty()) {
-        self->request(serv, add_atom::value, username, password).receive(
-          [] (bool result, const std::string& username) {
-            if (result) {
-              std::cout << "INFO: Add user[" << username << "] successfully" << std::endl;
-            } else {
-              std::cerr << "ERROR: Fail in adding user[" << username << "]" << std::endl;
-            }
-          }
-        );
-      }
+      auto serv_fv = make_function_view(serv); 
       std::vector<uint8_t> key(key_src.begin(), key_src.end());
-      auto ok_hdl = [] (uint16_t) {
+      try {
+        if (!username.empty()) {
+          auto res = serv_fv(add_atom::value, username, password);
+          if (std::get<0>(res)) {
+            std::cout << "INFO: Add user[" << std::get<1>(res) << "] successfully" << std::endl;
+          } else {
+            std::cerr << "ERROR: Fail in adding user[" << std::get<1>(res) << "]" << std::endl;
+          }
+        }
+        if (host.empty()) {
+          serv_fv(publish_atom::value, port, key, res.opts.count("zlib") > 0);
+        } else {
+          serv_fv(publish_atom::value, host, port, key, res.opts.count("zlib") > 0);
+        }
         std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
-      };
-      auto err_hdl = [&ret] (error& e) {
-        std::cerr << "ERROR: " << e.context() << std::endl;
-        ret = 1;
-      };
-      if (host.empty()) {
-        self->request(serv, publish_atom::value, port,
-                      key, res.opts.count("zlib") > 0).receive(ok_hdl, err_hdl);
-      } else {
-        self->request(serv, publish_atom::value, host, port,
-                      key, res.opts.count("zlib") > 0).receive(ok_hdl, err_hdl);
+      } catch (const std::exception& e) {
+        std::cerr << "ERROR: " << e.what() << std::endl;
+        anon_send(serv, exit_reason::kill);
+        return 1;
       }
-
-      if (ret) {
-        anon_send_exit(serv, exit_reason::kill);
-      }
-
-      return ret;
+      return 0;
     }
   }
 }
