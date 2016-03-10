@@ -66,8 +66,6 @@ gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self
         self->close(msg.handle);
       }
     },
-    [] (const new_data_msg&) {},
-    [] (const connection_closed_msg&) {},
     [] (const acceptor_closed_msg&) {},
     [self] (publish_atom, uint16_t port) -> maybe<uint16_t> {
       try {

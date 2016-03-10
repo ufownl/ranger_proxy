@@ -20,7 +20,6 @@
 #include <caf/all.hpp>
 #include <caf/io/all.hpp>
 #include <caf/io/network/asio_multiplexer_impl.hpp>
-#include <caf/io/experimental/typed_broker.hpp>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <string>
@@ -28,7 +27,7 @@
 #include "scope_guard.hpp"
 
 using echo_service =
-  caf::io::experimental::minimal_server::extend<
+  caf::io::accept_handler::extend_with<caf::io::connection_handler>::extend<
     caf::replies_to<caf::publish_atom>::with<uint16_t>
   >;
 

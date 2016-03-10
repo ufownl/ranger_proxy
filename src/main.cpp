@@ -27,7 +27,6 @@
 
 using namespace ranger;
 using namespace ranger::proxy;
-using namespace ranger::proxy::experimental;
 
 int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<>* root, bool verbose) {
   auto next = root->next_sibling("ranger_proxy");

@@ -81,8 +81,6 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
                    timeout, verbose);
       self->link_to(forked);
     },
-    [] (const new_data_msg&) {},
-    [] (const connection_closed_msg&) {},
     [] (const acceptor_closed_msg&) {},
     [self] (publish_atom, uint16_t port,
             const std::vector<uint8_t>& key, bool zlib) -> maybe<uint16_t> {

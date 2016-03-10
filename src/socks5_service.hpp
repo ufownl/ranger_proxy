@@ -26,7 +26,7 @@
 namespace ranger { namespace proxy {
 
 using socks5_service =
-  minimal_server::extend<
+  accept_handler::extend<
     replies_to<publish_atom, uint16_t, std::vector<uint8_t>, bool>::with<uint16_t>,
     replies_to<publish_atom, std::string, uint16_t, std::vector<uint8_t>, bool>::with<uint16_t>,
     replies_to<add_atom, std::string, std::string>::with<bool, std::string>

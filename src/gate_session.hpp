@@ -25,7 +25,7 @@
 namespace ranger { namespace proxy {
 
 using gate_session =
-  minimal_client::extend<
+  connection_handler::extend<
     reacts_to<connection_handle>,
     reacts_to<error>,
     reacts_to<encrypt_atom, std::vector<char>>,
