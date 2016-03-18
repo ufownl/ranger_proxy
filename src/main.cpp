@@ -109,9 +109,11 @@ int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<
       }
 
       if (addr.empty()) {
-        self->request(serv, publish_atom::value, port).receive(ok_hdl, err_hdl);
+        self->request(serv, infinite, publish_atom::value,
+                      port).receive(ok_hdl, err_hdl);
       } else {
-        self->request(serv, publish_atom::value, addr, port).receive(ok_hdl, err_hdl);
+        self->request(serv, infinite, publish_atom::value,
+                      addr, port).receive(ok_hdl, err_hdl);
       }
 
       if (ret) {
@@ -120,7 +122,8 @@ int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<
       }
     }
   } else {
-    auto serv = sys.middleman().spawn_broker(socks5_service_impl, timeout, verbose, log);
+    auto serv = sys.middleman().spawn_broker(socks5_service_impl, timeout,
+                                             verbose, log);
     scoped_actor self(sys);
     for (auto i = root->first_node("user"); i; i = i->next_sibling("user")) {
       node = i->first_node("username");
@@ -132,12 +135,15 @@ int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<
           password = node->value();
         }
 
-        self->request(serv, add_atom::value, username, password).receive(
+        self->request(serv, infinite, add_atom::value,
+                      username, password).receive(
           [] (bool result, const std::string& username) {
             if (result) {
-              std::cout << "INFO: Add user[" << username << "] successfully" << std::endl;
+              std::cout << "INFO: Add user[" << username
+                        << "] successfully" << std::endl;
             } else {
-              std::cerr << "ERROR: Fail in adding user[" << username << "]" << std::endl;
+              std::cerr << "ERROR: Fail in adding user["
+                        << username << "]" << std::endl;
             }
           }
         );
@@ -179,11 +185,11 @@ int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<
       }
 
       if (addr.empty()) {
-        self->request(serv, publish_atom::value, port,
-                      key, zlib).receive(ok_hdl, err_hdl);
+        self->request(serv, infinite, publish_atom::value,
+                      port, key, zlib).receive(ok_hdl, err_hdl);
       } else {
-        self->request(serv, publish_atom::value, addr, port,
-                      key, zlib).receive(ok_hdl, err_hdl);
+        self->request(serv, infinite, publish_atom::value,
+                      addr, port, key, zlib).receive(ok_hdl, err_hdl);
       }
 
       if (ret) {
