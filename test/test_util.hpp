@@ -44,7 +44,7 @@ echo_service_impl(echo_service::broker_pointer self) {
     },
     [] (const caf::io::connection_closed_msg&) {},
     [] (const caf::io::acceptor_closed_msg&) {},
-    [=] (caf::publish_atom) -> caf::maybe<uint16_t> {
+    [=] (caf::publish_atom) -> caf::result<uint16_t> {
       try {
         return self->add_tcp_doorman().second;
       } catch (const caf::network_error& e) {
