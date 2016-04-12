@@ -25,7 +25,7 @@ void logger_ostream::redirect(logger lgr) {
   m_logger = lgr;
 }
 
-logger_ostream::logger_ostream(abstract_actor* self)
+logger_ostream::logger_ostream(local_actor* self)
   : m_self(self)
   , m_content("[actor") {
   using std::to_string;
@@ -41,7 +41,7 @@ logger_ostream& logger_ostream::flush() {
   if (m_logger) {
     send_as(actor_cast<actor>(m_self), m_logger, std::move(m_content));
   } else {
-    actor_ostream(m_self.get()) << std::move(m_content) << std::flush;
+    actor_ostream(m_self) << std::move(m_content) << std::flush;
   }
   return *this;
 }
@@ -55,10 +55,10 @@ logger_ostream& logger_ostream::operator << (func_type func) {
 }
 
 logger_ostream log(const scoped_actor& self) {
-  return logger_ostream(self.get());
+  return logger_ostream(self.ptr());
 }
 
-logger_ostream log(abstract_actor* self) {
+logger_ostream log(local_actor* self) {
   return logger_ostream(self);
 }
 
