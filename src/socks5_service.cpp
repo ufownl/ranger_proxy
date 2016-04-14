@@ -80,6 +80,7 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
                    info.first, seed, info.second,
                    timeout, verbose);
       self->link_to(forked);
+      ++self->state.session_count;
     },
     [] (const acceptor_closed_msg&) {},
     [self] (publish_atom, uint16_t port,
@@ -115,11 +116,17 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
 
       return self->delegate(tbl, add_atom::value, username, password);
     },
-    [self] (const exit_msg& msg) {
+    [self, verbose] (const exit_msg& msg) {
       if (msg.reason != exit_reason::normal
           && msg.reason != exit_reason::user_shutdown
           && msg.reason != exit_reason::unhandled_exception) {
         self->quit(msg.reason);
+      } else {
+        --self->state.session_count;
+        if (verbose) {
+          ranger::proxy::log(self) << "INFO: Remained socks5 session count: " 
+                                   << self->state.session_count << std::endl;
+        }
       }
     }
   };

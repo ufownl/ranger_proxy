@@ -49,6 +49,8 @@ public:
                         bool zlib);
   doorman_info get_doorman_info(accept_handle hdl) const;
 
+  size_t session_count = 0;
+
 private:
   user_table m_user_tbl;
   std::unordered_map<accept_handle, doorman_info> m_info_map;
