@@ -53,7 +53,7 @@ public:
   void handle_new_data(const new_data_msg& msg);
   void handle_conn_closed(const connection_closed_msg& msg);
   void handle_connect_succ(connection_handle hdl);
-  void handle_connect_fail(const std::string& what);
+  void handle_connect_fail(const caf::message& what);
   void handle_encrypted_data(const std::vector<char>& buf);
   void handle_decrypted_data(const std::vector<char>& buf);
   void handle_auth_result(bool result);
@@ -84,7 +84,7 @@ private:
   bool m_valid {false};
   unpacker<uint8_t> m_unpacker;
   std::function<void(connection_handle)> m_conn_succ_handler;
-  std::function<void(const std::string&)> m_conn_fail_handler;
+  std::function<void(const caf::message&)> m_conn_fail_handler;
 };
 
 socks5_session::behavior_type

@@ -92,7 +92,7 @@ int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<
       std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
     };
     auto err_hdl = [&ret] (error& e) {
-      std::cerr << "ERROR: " << e.context() << std::endl;
+      std::cerr << "ERROR: " << to_string(e.context()) << std::endl;
       ret = 1;
     };
     for (auto i = root->first_node("local_host"); i; i = i->next_sibling("local_host")) {
@@ -154,7 +154,7 @@ int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<
       std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
     };
     auto err_hdl = [&ret] (error& e) {
-      std::cerr << "ERROR: " << e.context() << std::endl;
+      std::cerr << "ERROR: " << to_string(e.context()) << std::endl;
       ret = 1;
     };
     for (auto i = root->first_node("local_host"); i; i = i->next_sibling("local_host")) {

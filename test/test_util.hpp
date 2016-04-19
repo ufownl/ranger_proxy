@@ -48,7 +48,7 @@ echo_service_impl(echo_service::broker_pointer self) {
       try {
         return self->add_tcp_doorman().second;
       } catch (const caf::network_error& e) {
-        return caf::error(1, caf::atom("test_error"), e.what());
+        return caf::error(1, caf::atom("test_error"), caf::make_message(e.what()));
       }
     }
   };

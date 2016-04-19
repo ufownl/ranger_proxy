@@ -131,7 +131,7 @@ void socks5_state::handle_connect_succ(connection_handle hdl) {
   }
 }
 
-void socks5_state::handle_connect_fail(const std::string& what) {
+void socks5_state::handle_connect_fail(const caf::message& what) {
   if (m_conn_fail_handler) {
     m_conn_fail_handler(what);
   }
@@ -426,7 +426,7 @@ bool socks5_state::handle_ipv4_request(std::vector<char> buf) {
     m_self->configure_read(m_remote_hdl, receive_policy::at_most(BUFFER_SIZE));
   };
 
-  m_conn_fail_handler = [this, addr, port] (const std::string& what) {
+  m_conn_fail_handler = [this, addr, port] (const caf::message& what) {
     log(m_self) << "ERROR: " << what << " ["
       << m_self->remote_addr(m_local_hdl) << ":"
       << m_self->remote_port(m_local_hdl) << "]" << std::endl;
@@ -469,7 +469,7 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
       m_self->configure_read(m_remote_hdl, receive_policy::at_most(BUFFER_SIZE));
     };
 
-    m_conn_fail_handler = [this, host, port] (const std::string& what) {
+    m_conn_fail_handler = [this, host, port] (const caf::message& what) {
       log(m_self) << "ERROR: " << what << " ["
         << m_self->remote_addr(m_local_hdl) << ":"
         << m_self->remote_port(m_local_hdl) << "]" << std::endl;

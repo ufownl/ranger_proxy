@@ -20,7 +20,7 @@
 namespace ranger { namespace proxy {
 
 error make_error(err ec, std::string context/* = std::string() */) {
-  return {static_cast<uint8_t>(ec), atom("RP_ERROR"), std::move(context)};
+  return {static_cast<uint8_t>(ec), atom("RP_ERROR"), caf::make_message(std::move(context))};
 }
 
 } }

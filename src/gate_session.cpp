@@ -144,7 +144,7 @@ void gate_state::handle_connect_succ(connection_handle hdl) {
   }
 }
 
-void gate_state::handle_connect_fail(const std::string& what) {
+void gate_state::handle_connect_fail(const caf::message& what) {
   log(m_self) << "ERROR: " << what << std::endl;
   m_self->quit(exit_reason::user_shutdown);
 }
