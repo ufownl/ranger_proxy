@@ -37,11 +37,11 @@ void handle_connect_completed(T* self,
   if (ec) {
     scoped_actor tmp(self->system());
     log(tmp) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
-    if (!self->exited()) {
+    if (!self->is_terminated()) {
       self->send(actor_cast<actor_hdl>(self), make_error(err::network_error, "could not connect to host: " + ep_info));
     }
   } else {
-    if (!self->exited()) {
+    if (!self->is_terminated()) {
       auto& backend = static_cast<network::asio_multiplexer&>(self->parent().backend());
       auto hdl = backend.add_tcp_scribe(self, std::move(fd));
       self->send(actor_cast<actor_hdl>(self), hdl);
@@ -82,11 +82,11 @@ void async_connect(T* self, const std::string& host, uint16_t port) {
       if (ec) {
         scoped_actor tmp(self->system());
         log(tmp) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
-        if (!self->exited()) {
+        if (!self->is_terminated()) {
           using actor_hdl = typename T::actor_hdl;
           self->send(actor_cast<actor_hdl>(self), make_error(err::network_error, "could not resolve host: " + ep_info));
         }
-      } else if (!self->exited()) {
+      } else if (!self->is_terminated()) {
         auto fd = std::make_shared<network::asio_tcp_socket>(*self->parent().backend().pimpl());
         boost::asio::async_connect(*fd, it,
           [self, ptr, ep_info, fd] (const error_code& ec, tcp::resolver::iterator it) {

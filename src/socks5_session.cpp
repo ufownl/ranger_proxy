@@ -511,19 +511,13 @@ socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
       self->state.handle_auth_result(result);
     },
     [self, hdl] (const exit_msg& msg) {
-      switch (msg.reason) {
-      case exit_reason::unhandled_exception:
+      if (msg.reason == exit_reason::unhandled_exception) {
         log(self) << "ERROR: Unhandled exception ["
           << self->remote_addr(hdl) << ":"
           << self->remote_port(hdl) << "]" << std::endl;
-        break;
-      case exit_reason::user_shutdown:
+      } else if (msg.reason == exit_reason::user_shutdown) {
         self->state.handle_user_shutdown(msg.source);
-        break;
-      default:
-        break;
       }
-
       if (msg.reason != exit_reason::normal) {
         self->quit(msg.reason);
       }
