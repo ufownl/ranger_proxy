@@ -52,7 +52,19 @@ socks5_service_state::get_doorman_info(accept_handle hdl) const {
 socks5_service::behavior_type
 socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self,
                     int timeout, bool verbose, const std::string& log) {
-  self->trap_exit(true);
+  self->set_exit_handler([self, verbose] (const exit_msg& msg) {
+    if (msg.reason != exit_reason::normal
+        && msg.reason != exit_reason::user_shutdown
+        && msg.reason != exit_reason::unhandled_exception) {
+      self->quit(msg.reason);
+    } else {
+      --self->state.session_count;
+      if (verbose) {
+        ranger::proxy::log(self) << "INFO: Remained socks5 session count: " 
+                                 << self->state.session_count << std::endl;
+      }
+    }
+  });
 
   if (!log.empty()) {
     logger_ostream::redirect(self->spawn<linked>(logger_impl, log));
@@ -116,19 +128,6 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
 
       return self->delegate(tbl, add_atom::value, username, password);
     },
-    [self, verbose] (const exit_msg& msg) {
-      if (msg.reason != exit_reason::normal
-          && msg.reason != exit_reason::user_shutdown
-          && msg.reason != exit_reason::unhandled_exception) {
-        self->quit(msg.reason);
-      } else {
-        --self->state.session_count;
-        if (verbose) {
-          ranger::proxy::log(self) << "INFO: Remained socks5 session count: " 
-                                   << self->state.session_count << std::endl;
-        }
-      }
-    }
   };
 }
 

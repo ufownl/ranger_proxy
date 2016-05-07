@@ -38,7 +38,8 @@ void handle_connect_completed(T* self,
     scoped_actor tmp(self->system());
     log(tmp) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
     if (!self->is_terminated()) {
-      self->send(actor_cast<actor_hdl>(self), make_error(err::network_error, "could not connect to host: " + ep_info));
+      self->send(actor_cast<actor_hdl>(self), connect_atom::value,
+                 make_error(err::network_error, "could not connect to host: " + ep_info));
     }
   } else {
     if (!self->is_terminated()) {
@@ -84,7 +85,8 @@ void async_connect(T* self, const std::string& host, uint16_t port) {
         log(tmp) << "ERROR: " << ec.message() << ": " << ep_info << std::endl;
         if (!self->is_terminated()) {
           using actor_hdl = typename T::actor_hdl;
-          self->send(actor_cast<actor_hdl>(self), make_error(err::network_error, "could not resolve host: " + ep_info));
+          self->send(actor_cast<actor_hdl>(self), connect_atom::value,
+                     make_error(err::network_error, "could not resolve host: " + ep_info));
         }
       } else if (!self->is_terminated()) {
         auto fd = std::make_shared<network::asio_tcp_socket>(*self->parent().backend().pimpl());

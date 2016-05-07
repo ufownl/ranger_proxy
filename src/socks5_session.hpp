@@ -30,7 +30,7 @@ namespace ranger { namespace proxy {
 using socks5_session =
   connection_handler::extend<
     reacts_to<connection_handle>,
-    reacts_to<error>,
+    reacts_to<connect_atom, error>,
     reacts_to<encrypt_atom, std::vector<char>>,
     reacts_to<decrypt_atom, std::vector<char>>,
     reacts_to<auth_atom, bool>
