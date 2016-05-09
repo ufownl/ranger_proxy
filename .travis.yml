@@ -15,7 +15,7 @@ addons:
         - ubuntu-toolchain-r-test
         - kalakris-cmake
         packages:
-        - g++-4.8
+        - g++-5
         - cmake
     coverity_scan:
         project:
@@ -27,8 +27,8 @@ addons:
         branch_pattern: coverity_scan
 
 before_install:
-- export CC="gcc-4.8"
-- export CXX="g++-4.8"
+- export CC="gcc-5"
+- export CXX="g++-5"
 - cd contrib
 
 install:
