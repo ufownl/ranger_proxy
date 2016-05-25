@@ -49,10 +49,10 @@ void gate_state::handle_new_data(const new_data_msg& msg) {
       m_buf.insert(m_buf.end(), msg.buf.begin(), msg.buf.end());
     } else {
       if (!m_key.empty()) {
-        if (m_encryptor) {
-          m_self->send(m_encryptor, encrypt_atom::value, msg.buf);
-        } else {
+        if (m_encryptor.unsafe()) {
           m_buf.insert(m_buf.end(), msg.buf.begin(), msg.buf.end());
+        } else {
+          m_self->send(m_encryptor, encrypt_atom::value, msg.buf);
         }
       } else if (m_self->valid(m_remote_hdl)) {
         m_self->write(m_remote_hdl, msg.buf.size(), msg.buf.data());
@@ -61,11 +61,11 @@ void gate_state::handle_new_data(const new_data_msg& msg) {
     }
   } else {
     if (!m_key.empty()) {
-      if (m_encryptor) {
+      if (m_encryptor.unsafe()) {
+        m_unpacker.append(msg.buf);
+      } else {
         m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
         ++m_decrypting;
-      } else {
-        m_unpacker.append(msg.buf);
       }
     } else {
       m_self->write(m_local_hdl, msg.buf.size(), msg.buf.data());
@@ -107,9 +107,7 @@ void gate_state::handle_connect_succ(connection_handle hdl) {
     }
 
     if (!m_buf.empty()) {
-      if (m_encryptor) {
-        m_self->send(m_encryptor, encrypt_atom::value, std::move(m_buf));
-      } else {
+      if (m_encryptor.unsafe()) {
         auto& wr_buf = m_self->wr_buf(m_remote_hdl);
         if (wr_buf.empty()) {
           wr_buf = std::move(m_buf);
@@ -118,6 +116,8 @@ void gate_state::handle_connect_succ(connection_handle hdl) {
           m_buf.clear();
         }
         m_self->flush(m_remote_hdl);
+      } else {
+        m_self->send(m_encryptor, encrypt_atom::value, std::move(m_buf));
       }
     }
   } else {

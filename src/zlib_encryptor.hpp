@@ -47,7 +47,7 @@ private:
   std::vector<char> uncompress(const std::vector<char>& in);
 
   encryptor::pointer m_self;
-  encryptor m_encryptor;
+  encryptor m_encryptor = unsafe_actor_handle_init;
   z_stream m_deflate_strm {0};
   z_stream m_inflate_strm {0};
 };

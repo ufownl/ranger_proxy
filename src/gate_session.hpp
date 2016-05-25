@@ -51,12 +51,12 @@ public:
 
 private:
   const gate_session::broker_pointer m_self;
-  deadline_timer m_timer;
+  deadline_timer m_timer = unsafe_actor_handle_init;
   connection_handle m_local_hdl;
   connection_handle m_remote_hdl;
   std::vector<uint8_t> m_key;
   bool m_zlib {false};
-  encryptor m_encryptor;
+  encryptor m_encryptor = unsafe_actor_handle_init;
   size_t m_decrypting {0};
   std::vector<char> m_buf;
   unpacker<uint8_t> m_unpacker;

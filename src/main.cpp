@@ -287,7 +287,7 @@ int bootstrap(int argc, char* argv[]) {
         std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
       } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << std::endl;
-        anon_send(serv, exit_reason::kill);
+        anon_send_exit(serv, exit_reason::kill);
         return 1;
       }
       return 0;
@@ -312,7 +312,7 @@ int bootstrap(int argc, char* argv[]) {
         std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
       } catch (const std::exception& e) {
         std::cerr << "ERROR: " << e.what() << std::endl;
-        anon_send(serv, exit_reason::kill);
+        anon_send_exit(serv, exit_reason::kill);
         return 1;
       }
       return 0;

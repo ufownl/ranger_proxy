@@ -85,7 +85,7 @@ protected:
     ranger_proxy_test::TearDown();
   }
 
-  echo_service m_echo;
+  echo_service m_echo = caf::unsafe_actor_handle_init;
   uint16_t m_port {0};
 };
 

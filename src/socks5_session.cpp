@@ -89,22 +89,22 @@ void socks5_state::handle_new_data(const new_data_msg& msg) {
   } else if (msg.handle == m_local_hdl) {
     m_local_recv_bytes += msg.buf.size();
     m_self->send(m_timer, reset_atom::value);
-    if (m_encryptor) {
-      m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
-    } else {
+    if (m_encryptor.unsafe()) {
       if (m_remote_hdl.invalid()) {
         m_unpacker.append(msg.buf);
       } else if (m_self->valid(m_remote_hdl)) {
         write_raw(m_remote_hdl, msg.buf);
       }
+    } else {
+      m_self->send(m_encryptor, decrypt_atom::value, msg.buf);
     }
   } else {
     m_remote_recv_bytes += msg.buf.size();
-    if (m_encryptor) {
+    if (m_encryptor.unsafe()) {
+      write_raw(m_local_hdl, msg.buf);
+    } else {
       m_self->send(m_encryptor, encrypt_atom::value, msg.buf);
       ++m_encrypting;
-    } else {
-      write_raw(m_local_hdl, msg.buf);
     }
   }
 }
@@ -182,11 +182,11 @@ void socks5_state::handle_user_shutdown(const actor_addr& source) {
 }
 
 void socks5_state::write_to_local(std::vector<char> buf) {
-  if (m_encryptor) {
+  if (m_encryptor.unsafe()) {
+    write_raw(m_local_hdl, std::move(buf));
+  } else {
     m_self->send(m_encryptor, encrypt_atom::value, std::move(buf));
     ++m_encrypting;
-  } else {
-    write_raw(m_local_hdl, std::move(buf));
   }
 }
 
@@ -248,7 +248,7 @@ bool socks5_state::handle_select_method(std::vector<char> buf) {
     }
 
     uint8_t method = 0x00;
-    if (m_user_tbl) {
+    if (!m_user_tbl.unsafe()) {
       method = 0x02;
     }
 

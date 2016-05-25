@@ -122,6 +122,6 @@ TEST_F(ranger_proxy_test, gate_null) {
     ASSERT_EQ(0, connect(fd, reinterpret_cast<sockaddr*>(&sin), sizeof(sin)));
   }
 
-  gate_fv.assign(caf::invalid_actor);
+  gate_fv.assign(caf::unsafe_actor_handle_init);
   m_sys->registry().await_running_count_equal(1);
 }

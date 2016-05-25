@@ -121,7 +121,7 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
     },
     [self] (add_atom, const std::string& username, const std::string& password) {
       auto tbl = self->state.get_user_table();
-      if (!tbl) {
+      if (tbl.unsafe()) {
         tbl = self->spawn<linked>(user_table_impl);
         self->state.set_user_table(tbl);
       }

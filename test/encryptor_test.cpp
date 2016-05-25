@@ -89,7 +89,7 @@ TEST_F(ranger_proxy_test, aes_cfb128_encryptor_256) {
 }
 
 TEST_F(ranger_proxy_test, zlib_encryptor) {
-  auto enc = m_sys->spawn(ranger::proxy::zlib_encryptor_impl, ranger::proxy::encryptor());
+  auto enc = m_sys->spawn(ranger::proxy::zlib_encryptor_impl, caf::unsafe_actor_handle_init);
   auto enc_guard = make_scope_guard([enc] {
     caf::anon_send_exit(enc, caf::exit_reason::kill);
   });

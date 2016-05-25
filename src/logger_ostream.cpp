@@ -19,7 +19,7 @@
 
 namespace ranger { namespace proxy {
 
-logger logger_ostream::m_logger;
+logger logger_ostream::m_logger = unsafe_actor_handle_init;
 
 void logger_ostream::redirect(logger lgr) {
   m_logger = lgr;
@@ -38,10 +38,10 @@ logger_ostream& logger_ostream::write(const std::string& content) {
 }
 
 logger_ostream& logger_ostream::flush() {
-  if (m_logger) {
-    send_as(actor_cast<actor>(m_self), m_logger, std::move(m_content));
-  } else {
+  if (m_logger.unsafe()) {
     actor_ostream(m_self) << std::move(m_content) << std::flush;
+  } else {
+    send_as(actor_cast<actor>(m_self), m_logger, std::move(m_content));
   }
   return *this;
 }

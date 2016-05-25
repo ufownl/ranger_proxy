@@ -449,8 +449,8 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
     ASSERT_EQ(sizeof(reply_port), recv(fd, &reply_port, sizeof(reply_port), 0));
   }
 
-  socks5_fv.assign(caf::invalid_actor);
-  gate_fv.assign(caf::invalid_actor);
+  socks5_fv.assign(caf::unsafe_actor_handle_init);
+  gate_fv.assign(caf::unsafe_actor_handle_init);
   while (m_sys->registry().running() > 2) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
@@ -530,8 +530,8 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
     ASSERT_EQ(sizeof(reply_port), recv(fd, &reply_port, sizeof(reply_port), 0));
   }
 
-  socks5_fv.assign(caf::invalid_actor);
-  gate_fv.assign(caf::invalid_actor);
+  socks5_fv.assign(caf::unsafe_actor_handle_init);
+  gate_fv.assign(caf::unsafe_actor_handle_init);
   while (m_sys->registry().running() > 2) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
@@ -868,7 +868,7 @@ TEST_F(ranger_proxy_test, socks5_username_auth_failed) {
     ASSERT_NE(0x00, buf[1]);
   }
 
-  socks5_fv.assign(caf::invalid_actor);
+  socks5_fv.assign(caf::unsafe_actor_handle_init);
   while (m_sys->registry().running() > 2) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }

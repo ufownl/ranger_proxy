@@ -70,15 +70,15 @@ private:
   bool handle_domainname_request(std::vector<char> buf);
 
   const socks5_session::broker_pointer m_self;
-  deadline_timer m_timer;
+  deadline_timer m_timer = unsafe_actor_handle_init;
   connection_handle m_local_hdl;
   size_t m_local_recv_bytes {0};
   size_t m_local_send_bytes {0};
   connection_handle m_remote_hdl;
   size_t m_remote_recv_bytes {0};
   size_t m_remote_send_bytes {0};
-  user_table m_user_tbl;
-  encryptor m_encryptor;
+  user_table m_user_tbl = unsafe_actor_handle_init;
+  encryptor m_encryptor = unsafe_actor_handle_init;
   size_t m_encrypting {0};
   bool m_verbose {false};
   bool m_valid {false};
