@@ -221,7 +221,8 @@ int bootstrap_with_config(actor_system_config& sys_cfg, const std::string& confi
 }
 
 int bootstrap(int argc, char* argv[]) {
-  actor_system_config sys_cfg(argc, argv);
+  actor_system_config sys_cfg;
+  sys_cfg.parse(argc, argv);
   sys_cfg.middleman_network_backend = atom("asio");
   sys_cfg.load<middleman>();
 
