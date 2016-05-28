@@ -37,7 +37,7 @@ install:
 - tar xzf boost_1_59_0.tar.gz
 - cd boost_1_59_0 && ./bootstrap.sh --prefix=$PREFIX --with-libraries=system && ./b2 -d0 install && cd ..
 # CAF
-- git clone --branch=topic/actor-system https://github.com/actor-framework/actor-framework.git
+- git clone --branch=develop https://github.com/actor-framework/actor-framework.git
 - cd actor-framework && ./configure --prefix=$PREFIX --with-asio --no-unit-tests --no-examples && make && make install && cd ..
 
 before_script:
