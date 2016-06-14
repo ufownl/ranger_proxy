@@ -48,7 +48,7 @@ public:
             const user_table& tbl,
             const std::vector<uint8_t>& key,
             uint32_t seed, bool zlib,
-            int timeout, bool verbose);
+            size_t timeout, bool verbose);
 
   void handle_new_data(const new_data_msg& msg);
   void handle_conn_closed(const connection_closed_msg& msg);
@@ -90,7 +90,7 @@ private:
 socks5_session::behavior_type
 socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
                     connection_handle hdl, user_table tbl, const std::vector<uint8_t>& key,
-                    uint32_t seed, bool zlib, int timeout, bool verbose);
+                    uint32_t seed, bool zlib, size_t timeout, bool verbose);
 
 } }
 

@@ -40,7 +40,7 @@ public:
   gate_state& operator = (const gate_state&) = delete;
 
   void init(connection_handle hdl, const std::string& host, uint16_t port,
-            const std::vector<uint8_t>& key, bool zlib, int timeout);
+            const std::vector<uint8_t>& key, bool zlib, size_t timeout);
 
   void handle_new_data(const new_data_msg& msg);
   void handle_conn_closed(const connection_closed_msg& msg);
@@ -65,7 +65,7 @@ private:
 gate_session::behavior_type
 gate_session_impl(gate_session::stateful_broker_pointer<gate_state> self,
                   connection_handle hdl, const std::string& host, uint16_t port,
-                  const std::vector<uint8_t>& key, bool zlib, int timeout);
+                  const std::vector<uint8_t>& key, bool zlib, size_t timeout);
 
 } }
 

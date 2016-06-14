@@ -51,7 +51,7 @@ socks5_service_state::get_doorman_info(accept_handle hdl) const {
 
 socks5_service::behavior_type
 socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state> self,
-                    int timeout, bool verbose, const std::string& log) {
+                    size_t timeout, bool verbose, const std::string& log) {
   self->set_exit_handler([self, verbose] (const exit_msg& msg) {
     if (msg.reason != exit_reason::normal
         && msg.reason != exit_reason::user_shutdown

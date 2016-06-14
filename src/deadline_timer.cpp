@@ -20,7 +20,7 @@
 namespace ranger { namespace proxy {
 
 deadline_timer::behavior_type
-deadline_timer_impl(deadline_timer::pointer self, int timeout) {
+deadline_timer_impl(deadline_timer::pointer self, size_t timeout) {
   return {
     [] (reset_atom) {
       // nop

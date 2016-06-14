@@ -30,7 +30,7 @@ gate_state::gate_state(gate_session::broker_pointer self)
 }
 
 void gate_state::init(connection_handle hdl, const std::string& host, uint16_t port,
-                      const std::vector<uint8_t>& key, bool zlib, int timeout) {
+                      const std::vector<uint8_t>& key, bool zlib, size_t timeout) {
   m_timer = m_self->spawn<linked>(deadline_timer_impl, timeout);
 
   m_local_hdl = hdl;
@@ -152,7 +152,7 @@ void gate_state::handle_connect_fail(const caf::message& what) {
 gate_session::behavior_type
 gate_session_impl(gate_session::stateful_broker_pointer<gate_state> self,
                   connection_handle hdl, const std::string& host, uint16_t port,
-                  const std::vector<uint8_t>& key, bool zlib, int timeout) {
+                  const std::vector<uint8_t>& key, bool zlib, size_t timeout) {
   self->state.init(hdl, host, port, key, zlib, timeout);
   return {
     [self] (const new_data_msg& msg) {

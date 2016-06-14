@@ -46,7 +46,7 @@ gate_service_state::host_info gate_service_state::query_host() {
 
 gate_service::behavior_type
 gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self,
-                  int timeout, const std::string& log) {
+                  size_t timeout, const std::string& log) {
   self->set_exit_handler([self] (const exit_msg& msg) {
     if (msg.reason != exit_reason::normal
         && msg.reason != exit_reason::user_shutdown

@@ -50,7 +50,7 @@ void socks5_state::init(connection_handle hdl,
                         const user_table& tbl,
                         const std::vector<uint8_t>& key,
                         uint32_t seed, bool zlib,
-                        int timeout, bool verbose) {
+                        size_t timeout, bool verbose) {
   m_timer = m_self->spawn<linked>(deadline_timer_impl, timeout);
   m_local_hdl = hdl;
   m_self->configure_read(m_local_hdl, receive_policy::at_most(BUFFER_SIZE));
@@ -485,7 +485,7 @@ bool socks5_state::handle_domainname_request(std::vector<char> buf) {
 socks5_session::behavior_type
 socks5_session_impl(socks5_session::stateful_broker_pointer<socks5_state> self,
                     connection_handle hdl, user_table tbl, const std::vector<uint8_t>& key,
-                    uint32_t seed, bool zlib, int timeout, bool verbose) {
+                    uint32_t seed, bool zlib, size_t timeout, bool verbose) {
   self->set_exit_handler([self, hdl] (const exit_msg& msg) {
     if (msg.reason == exit_reason::unhandled_exception) {
       log(self) << "ERROR: Unhandled exception ["

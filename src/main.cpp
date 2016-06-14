@@ -28,19 +28,54 @@
 using namespace ranger;
 using namespace ranger::proxy;
 
-int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<>* root, bool verbose) {
+struct proxy_config : public actor_system_config {
+  std::string host;
+  uint16_t port = 1080;
+  std::string username;
+  std::string password;
+  std::string key;
+  bool zlib = false;
+  size_t timeout = 300;
+  std::string log;
+  bool gate = false;
+  std::string remote_host;
+  uint16_t remote_port = 0;
+  std::string config;
+  bool verbose = false;
+  bool daemon = false;
+
+  proxy_config() {
+    opt_group(custom_options_, "global")
+      .add(host, "host,H", "set host")
+      .add(port, "port,p", "set port (default: 1080)")
+      .add(username, "username", "set username (it will enable username auth method)")
+      .add(password, "password", "set password")
+      .add(key, "key,k", "set key (default: empty)")
+      .add(zlib, "zlib,z", "enable zlib compression (default: disable)")
+      .add(timeout, "timeout,t", "set timeout (default: 300)")
+      .add(log, "log", "set log file path (default: empty)")
+      .add(gate, "gate,G", "run in gate mode")
+      .add(remote_host, "remote_host", "set remote host (only used in gate mode)")
+      .add(remote_port, "remote_port", "set remote port (only used in gate mode)")
+      .add(config, "config", "load a config file (it will disable all options above)")
+      .add(verbose, "verbose,v", "enable verbose output (default: disable)")
+      .add(daemon, "daemon,d", "run as daemon");
+  }
+};
+
+int bootstrap_with_config_impl(proxy_config& cfg, rapidxml::xml_node<>* root) {
   auto next = root->next_sibling("ranger_proxy");
   if (next) {
     auto pid = fork();
     if (pid == 0) {
-      return bootstrap_with_config_impl(sys_cfg, next, verbose);
+      return bootstrap_with_config_impl(cfg, next);
     } else if (pid < 0) {
       std::cerr << "ERROR: Failed in calling fork()" << std::endl;
       return 1;
     }
   }
 
-  int timeout = 300;
+  size_t timeout = 300;
   auto node = root->first_node("timeout");
   if (node) {
     timeout = atoi(node->value());
@@ -52,7 +87,7 @@ int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<
     log = node->value();
   }
 
-  actor_system sys(sys_cfg);
+  actor_system sys(cfg);
   int ret = 0;
   node = root->first_node("gate");
   if (node && atoi(node->value())) {
@@ -123,7 +158,7 @@ int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<
     }
   } else {
     auto serv = sys.middleman().spawn_broker(socks5_service_impl, timeout,
-                                             verbose, log);
+                                             cfg.verbose, log);
     scoped_actor self(sys);
     for (auto i = root->first_node("user"); i; i = i->next_sibling("user")) {
       node = i->first_node("username");
@@ -201,14 +236,14 @@ int bootstrap_with_config_impl(actor_system_config& sys_cfg, rapidxml::xml_node<
   return ret;
 }
 
-int bootstrap_with_config(actor_system_config& sys_cfg, const std::string& config, bool verbose) {
+int bootstrap_with_config(proxy_config& cfg) {
   try {
-    rapidxml::file<> fin(config.c_str());
+    rapidxml::file<> fin(cfg.config.c_str());
     rapidxml::xml_document<> doc;
     doc.parse<0>(fin.data());
     auto root = doc.first_node("ranger_proxy");
     if (root) {
-      return bootstrap_with_config_impl(sys_cfg, root, verbose);
+      return bootstrap_with_config_impl(cfg, root);
     }
     return 0;
   } catch (const rapidxml::parse_error& e) {
@@ -221,45 +256,12 @@ int bootstrap_with_config(actor_system_config& sys_cfg, const std::string& confi
 }
 
 int bootstrap(int argc, char* argv[]) {
-  actor_system_config sys_cfg;
-  sys_cfg.parse(argc, argv);
-  sys_cfg.middleman_network_backend = atom("asio");
-  sys_cfg.load<middleman>();
+  proxy_config cfg;
+  cfg.parse(argc, argv);
+  cfg.middleman_network_backend = atom("asio");
+  cfg.load<middleman>();
 
-  std::string host;
-  uint16_t port = 1080;
-  std::string username;
-  std::string password;
-  std::string key_src;
-  int timeout = 300;
-  std::string log;
-  std::string remote_host;
-  uint16_t remote_port = 0;
-  std::string config;
-
-  auto res = sys_cfg.args_remainder.extract_opts({
-    {"host,H", "set host", host},
-    {"port,p", "set port (default: 1080)", port},
-    {"username", "set username (it will enable username auth method)", username},
-    {"password", "set password", password},
-    {"key,k", "set key (default: empty)", key_src},
-    {"zlib,z", "enable zlib compression (default: disable)"},
-    {"timeout,t", "set timeout (default: 300)", timeout},
-    {"log", "set log file path (default: empty)", log},
-    {"gate,G", "run in gate mode"},
-    {"remote_host", "set remote host (only used in gate mode)", remote_host},
-    {"remote_port", "set remote port (only used in gate mode)", remote_port},
-    {"config", "load a config file (it will disable all options above)", config},
-    {"verbose,v", "enable verbose output (default: disable)"},
-    {"daemon,d", "run as daemon"}
-  });
-
-  if (res.opts.count("help") > 0) {
-    std::cout << res.helptext << std::endl;
-    return 0;
-  }
-
-  if (res.opts.count("daemon") > 0) {
+  if (cfg.daemon) {
     auto pid = fork();
     if (pid > 0) {
       return 0;
@@ -269,21 +271,20 @@ int bootstrap(int argc, char* argv[]) {
     }
   }
 
-  if (res.opts.count("config") > 0) {
-    return bootstrap_with_config(sys_cfg, config, res.opts.count("verbose") > 0);
+  if (!cfg.config.empty()) {
+    return bootstrap_with_config(cfg);
   } else {
-    actor_system sys(sys_cfg);
-    if (res.opts.count("gate") > 0) {
-      auto serv = sys.middleman().spawn_broker(gate_service_impl, timeout, log);
+    actor_system sys(cfg);
+    if (cfg.gate) {
+      auto serv = sys.middleman().spawn_broker(gate_service_impl, cfg.timeout, cfg.log);
       auto serv_fv = make_function_view(serv);
-      std::vector<uint8_t> key(key_src.begin(), key_src.end());
+      std::vector<uint8_t> key(cfg.key.begin(), cfg.key.end());
       try {
-        serv_fv(add_atom::value, remote_host, remote_port, key,
-                res.opts.count("zlib") > 0);
-        if (host.empty()) {
-          serv_fv(publish_atom::value, port);
+        serv_fv(add_atom::value, cfg.remote_host, cfg.remote_port, key, cfg.zlib);
+        if (cfg.host.empty()) {
+          serv_fv(publish_atom::value, cfg.port);
         } else {
-          serv_fv(publish_atom::value, host, port);
+          serv_fv(publish_atom::value, cfg.host, cfg.port);
         }
         std::cout << "INFO: ranger_proxy(gate mode) start-up successfully" << std::endl;
       } catch (const std::exception& e) {
@@ -293,22 +294,22 @@ int bootstrap(int argc, char* argv[]) {
       }
       return 0;
     } else {
-      auto serv = sys.middleman().spawn_broker(socks5_service_impl, timeout, res.opts.count("verbose") > 0, log);
+      auto serv = sys.middleman().spawn_broker(socks5_service_impl, cfg.timeout, cfg.verbose, cfg.log);
       auto serv_fv = make_function_view(serv); 
-      std::vector<uint8_t> key(key_src.begin(), key_src.end());
+      std::vector<uint8_t> key(cfg.key.begin(), cfg.key.end());
       try {
-        if (!username.empty()) {
-          auto res = serv_fv(add_atom::value, username, password);
+        if (!cfg.username.empty()) {
+          auto res = serv_fv(add_atom::value, cfg.username, cfg.password);
           if (std::get<0>(res)) {
             std::cout << "INFO: Add user[" << std::get<1>(res) << "] successfully" << std::endl;
           } else {
             std::cerr << "ERROR: Fail in adding user[" << std::get<1>(res) << "]" << std::endl;
           }
         }
-        if (host.empty()) {
-          serv_fv(publish_atom::value, port, key, res.opts.count("zlib") > 0);
+        if (cfg.host.empty()) {
+          serv_fv(publish_atom::value, cfg.port, key, cfg.zlib);
         } else {
-          serv_fv(publish_atom::value, host, port, key, res.opts.count("zlib") > 0);
+          serv_fv(publish_atom::value, cfg.host, cfg.port, key, cfg.zlib);
         }
         std::cout << "INFO: ranger_proxy start-up successfully" << std::endl;
       } catch (const std::exception& e) {
