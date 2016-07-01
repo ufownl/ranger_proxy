@@ -99,10 +99,12 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
             const std::vector<uint8_t>& key, bool zlib) -> result<uint16_t> {
       try {
         auto doorman = self->add_tcp_doorman(port, nullptr, true);
-        self->state.add_doorman_info(doorman.first, key, zlib);
-        return doorman.second;
-      } catch (const network_error& e) {
-        return make_error(err::network_error, e.what());
+        if (doorman) {
+          self->state.add_doorman_info(doorman->first, key, zlib);
+          return doorman->second;
+        } else {
+          return doorman.error();
+        }
       } catch (const std::exception& e) {
         return make_error(err::unknown, e.what());
       }
@@ -111,10 +113,12 @@ socks5_service_impl(socks5_service::stateful_broker_pointer<socks5_service_state
             const std::vector<uint8_t>& key, bool zlib) -> result<uint16_t> {
       try {
         auto doorman = self->add_tcp_doorman(port, host.c_str(), true);
-        self->state.add_doorman_info(doorman.first, key, zlib);
-        return doorman.second;
-      } catch (const network_error& e) {
-        return make_error(err::network_error, e.what());
+        if (doorman) {
+          self->state.add_doorman_info(doorman->first, key, zlib);
+          return doorman->second;
+        } else {
+          return doorman.error();
+        }
       } catch (const std::exception& e) {
         return make_error(err::unknown, e.what());
       }

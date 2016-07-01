@@ -41,8 +41,8 @@ TEST_F(echo_test, socks5_no_auth_conn_ipv4) {
   });
   auto socks5_fv = caf::make_function_view(socks5);
 
-  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
-                        std::vector<uint8_t>(), false);
+  auto port = *socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                         std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -109,8 +109,8 @@ TEST_F(echo_test, socks5_no_auth_conn_domainname) {
   });
   auto socks5_fv = caf::make_function_view(socks5);
 
-  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
-                        std::vector<uint8_t>(), false);
+  auto port = *socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                         std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -179,8 +179,8 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_ipv4_null) {
   });
   auto socks5_fv = caf::make_function_view(socks5);
 
-  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
-                        std::vector<uint8_t>(), false);
+  auto port = *socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                         std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   for (auto i = 0; i < 10; ++i) {
@@ -240,8 +240,8 @@ TEST_F(ranger_proxy_test, socks5_no_auth_conn_domainname_null) {
   });
   auto socks5_fv = caf::make_function_view(socks5);
 
-  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
-                        std::vector<uint8_t>(), false);
+  auto port = *socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                         std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   for (auto i = 0; i < 10; ++i) {
@@ -313,12 +313,12 @@ TEST_F(echo_test, encrypted_socks5_no_auth_conn_ipv4) {
   });
   auto gate_fv = caf::make_function_view(gate);
 
-  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
-                        key, false);
+  auto port = *socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                         key, false);
   ASSERT_NE(0, port);
 
   gate_fv(caf::add_atom::value, "127.0.0.1", port, key, false);
-  port = gate_fv(caf::publish_atom::value, static_cast<uint16_t>(0));
+  port = *gate_fv(caf::publish_atom::value, static_cast<uint16_t>(0));
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -394,12 +394,12 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_ipv4_null) {
   });
   auto gate_fv = caf::make_function_view(gate);
 
-  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
-                        key, false);
+  auto port = *socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                         key, false);
   ASSERT_NE(0, port);
 
   gate_fv(caf::add_atom::value, "127.0.0.1", port, key, false);
-  port = gate_fv(caf::publish_atom::value, static_cast<uint16_t>(0));
+  port = *gate_fv(caf::publish_atom::value, static_cast<uint16_t>(0));
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -472,12 +472,12 @@ TEST_F(ranger_proxy_test, encrypt_socks5_no_auth_conn_domainname_null) {
   });
   auto gate_fv = caf::make_function_view(gate);
 
-  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+  auto port = *socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
                         key, false);
   ASSERT_NE(0, port);
 
   gate_fv(caf::add_atom::value, "127.0.0.1", port, key, false);
-  port = gate_fv(caf::publish_atom::value, static_cast<uint16_t>(0));
+  port = *gate_fv(caf::publish_atom::value, static_cast<uint16_t>(0));
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -545,8 +545,8 @@ TEST_F(echo_test, socks5_username_auth_conn_ipv4) {
   auto socks5_fv = caf::make_function_view(socks5);
 
   socks5_fv(caf::add_atom::value, "test", "Hello, world!");
-  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
-                        std::vector<uint8_t>(), false);
+  auto port = *socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                         std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -636,8 +636,8 @@ TEST_F(echo_test, socks5_username_auth_empty_passwd_conn_ipv4) {
   auto socks5_fv = caf::make_function_view(socks5);
 
   socks5_fv(caf::add_atom::value, "test", std::string());
-  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0), 
-                        std::vector<uint8_t>(), false);
+  auto port = *socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0), 
+                         std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -725,8 +725,8 @@ TEST_F(echo_test, socks5_username_auth_conn_domainname) {
   auto socks5_fv = caf::make_function_view(socks5);
 
   socks5_fv(caf::add_atom::value, "test", "Hello, world!");
-  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
-                        std::vector<uint8_t>(), false);
+  auto port = *socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                         std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -818,8 +818,8 @@ TEST_F(ranger_proxy_test, socks5_username_auth_failed) {
   auto socks5_fv = caf::make_function_view(socks5);
 
   socks5_fv(caf::add_atom::value, "auth_failed", "auth_failed");
-  auto port = socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
-                        std::vector<uint8_t>(), false);
+  auto port = *socks5_fv(caf::publish_atom::value, static_cast<uint16_t>(0),
+                         std::vector<uint8_t>(), false);
   ASSERT_NE(0, port);
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);

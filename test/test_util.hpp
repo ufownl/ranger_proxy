@@ -45,10 +45,11 @@ echo_service_impl(echo_service::broker_pointer self) {
     [] (const caf::io::connection_closed_msg&) {},
     [] (const caf::io::acceptor_closed_msg&) {},
     [=] (caf::publish_atom) -> caf::result<uint16_t> {
-      try {
-        return self->add_tcp_doorman().second;
-      } catch (const caf::network_error& e) {
-        return caf::error(1, caf::atom("test_error"), caf::make_message(e.what()));
+      auto result = self->add_tcp_doorman();
+      if (result) {
+        return result->second;
+      } else {
+        return result.error();
       }
     }
   };
@@ -57,10 +58,9 @@ echo_service_impl(echo_service::broker_pointer self) {
 class ranger_proxy_test : public testing::Test {
 public:
   ranger_proxy_test() {
-    caf::actor_system_config sys_cfg;
-    sys_cfg.middleman_network_backend = caf::atom("asio");
-    sys_cfg.load<caf::io::middleman>();
-    m_sys.reset(new caf::actor_system(sys_cfg));
+    m_cfg.middleman_network_backend = caf::atom("asio");
+    m_cfg.load<caf::io::middleman>();
+    m_sys.reset(new caf::actor_system(m_cfg));
   }
 
 protected:
@@ -68,6 +68,7 @@ protected:
     m_sys->await_all_actors_done();
   }
 
+  caf::actor_system_config m_cfg;
   std::unique_ptr<caf::actor_system> m_sys;
 };
 
@@ -76,7 +77,7 @@ protected:
   void SetUp() final {
     m_echo = m_sys->middleman().spawn_broker(echo_service_impl);
     auto echo_fv = caf::make_function_view(m_echo);
-    m_port = echo_fv(caf::publish_atom::value);
+    m_port = *echo_fv(caf::publish_atom::value);
     ASSERT_NE(0, m_port);
   }
 

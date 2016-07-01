@@ -180,6 +180,9 @@ int bootstrap_with_config_impl(proxy_config& cfg, rapidxml::xml_node<>* root) {
               std::cerr << "ERROR: Fail in adding user["
                         << username << "]" << std::endl;
             }
+          },
+          [] (error&) {
+            // nop
           }
         );
       }
@@ -299,7 +302,7 @@ int bootstrap(int argc, char* argv[]) {
       std::vector<uint8_t> key(cfg.key.begin(), cfg.key.end());
       try {
         if (!cfg.username.empty()) {
-          auto res = serv_fv(add_atom::value, cfg.username, cfg.password);
+          auto res = *serv_fv(add_atom::value, cfg.username, cfg.password);
           if (std::get<0>(res)) {
             std::cout << "INFO: Add user[" << std::get<1>(res) << "] successfully" << std::endl;
           } else {

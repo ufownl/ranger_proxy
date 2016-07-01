@@ -74,17 +74,19 @@ gate_service_impl(gate_service::stateful_broker_pointer<gate_service_state> self
     },
     [] (const acceptor_closed_msg&) {},
     [self] (publish_atom, uint16_t port) -> result<uint16_t> {
-      try {
-        return self->add_tcp_doorman(port, nullptr, true).second;
-      } catch (const network_error& e) {
-        return make_error(err::network_error, e.what());
+      auto res = self->add_tcp_doorman(port, nullptr, true);
+      if (res) {
+        return res->second;
+      } else {
+        return res.error();
       }
     },
     [self] (publish_atom, const std::string& host, uint16_t port) -> result<uint16_t> {
-      try {
-        return self->add_tcp_doorman(port, host.c_str(), true).second;
-      } catch (const network_error& e) {
-        return make_error(err::network_error, e.what());
+      auto res = self->add_tcp_doorman(port, host.c_str(), true);
+      if (res) {
+        return res->second;
+      } else {
+        return res.error();
       }
     },
     [self] (add_atom, const std::string& addr, uint16_t port,
