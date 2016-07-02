@@ -33,7 +33,7 @@ before_install:
 
 install:
 # CAF
-- git clone --branch=develop https://github.com/actor-framework/actor-framework.git
+- git clone --branch=0.14.5 https://github.com/actor-framework/actor-framework.git
 - cd actor-framework && ./configure --prefix=$PREFIX --no-unit-tests --no-examples && make && make install && cd ..
 # Boost
 - wget http://iweb.dl.sourceforge.net/project/boost/boost/1.59.0/boost_1_59_0.tar.gz
