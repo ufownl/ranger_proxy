@@ -83,7 +83,7 @@ make install
   * GCC >= 4.8
   * Clang >= 3.2
 * [CMake](http://www.cmake.org)
-* [C++ Actor Framework](https://github.com/actor-framework/actor-framework) (develop分支)
+* [C++ Actor Framework](https://github.com/actor-framework/actor-framework) (0.14.5)
 * [Boost.Asio](http://www.boost.org)
 * [Zlib](http://www.zlib.net)
 * [OpenSSL](http://www.openssl.org)
